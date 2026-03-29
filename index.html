@@ -397,25 +397,48 @@
         }
 
         // Drawing Events
-        canvas.addEventListener('mousedown', (e) => { isDrawing = true; points = [{ x: e.offsetX, y: e.offsetY }]; });
-        canvas.addEventListener('mousemove', (e) => {
+        // ==========================================
+        // Drawing Events (Updated for Apple Pencil & Touch)
+        // ==========================================
+        canvas.addEventListener('pointerdown', (e) => { 
+            isDrawing = true; 
+            points = [{ x: e.offsetX, y: e.offsetY }]; 
+            // Lock the pointer to the canvas so it doesn't accidentally scroll the page
+            canvas.setPointerCapture(e.pointerId);
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
             if (!isDrawing) return;
+            e.preventDefault(); // Prevents iPad from trying to scroll or zoom while drawing
+            
             points.push({ x: e.offsetX, y: e.offsetY });
-            setupBrush(); ctx.beginPath();
-            if (points.length < 3) { let b = points[0]; ctx.moveTo(b.x, b.y); ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); return; }
+            setupBrush(); 
+            ctx.beginPath();
+            
+            if (points.length < 3) { 
+                let b = points[0]; 
+                ctx.moveTo(b.x, b.y); 
+                ctx.lineTo(e.offsetX, e.offsetY); 
+                ctx.stroke(); 
+                return; 
+            }
+            
             let p0 = points[points.length - 3], p1 = points[points.length - 2], p2 = points[points.length - 1];
             let mid1X = (p0.x + p1.x) / 2, mid1Y = (p0.y + p1.y) / 2;
             let mid2X = (p1.x + p2.x) / 2, mid2Y = (p1.y + p2.y) / 2;
-            ctx.moveTo(mid1X, mid1Y); ctx.quadraticCurveTo(p1.x, p1.y, mid2X, mid2Y); ctx.stroke();
+            
+            ctx.moveTo(mid1X, mid1Y); 
+            ctx.quadraticCurveTo(p1.x, p1.y, mid2X, mid2Y); 
+            ctx.stroke();
         });
 
-        canvas.addEventListener('mouseup', () => { 
+        canvas.addEventListener('pointerup', () => { 
             if(isDrawing) { isDrawing = false; saveCanvasToNotebook(); } 
         });
-        canvas.addEventListener('mouseout', () => { 
+        
+        canvas.addEventListener('pointercancel', () => { 
             if(isDrawing) { isDrawing = false; saveCanvasToNotebook(); } 
         });
-
         // Clear Canvas Button
         document.getElementById('btnClearCanvas').addEventListener('click', () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
