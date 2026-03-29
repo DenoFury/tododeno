@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Kanban & Notebooks</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        /* CSS: Styling and Layout */
+        :root {
+            --bg-color: #12141a;
+            --sidebar-bg: #1e2129;
+            --board-bg: #12141a;
+            --column-bg: #1e2129;
+            --card-bg: #272c35;
+            --text-main: #e5e7eb;
+            --text-muted: #9ca3af;
+            --primary-color: #7c3aed;
+            --primary-hover: #6d28d9;
+            --danger: #ef4444;
+            --font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --paper-color: #fdfdfc;
+            --line-color: #d1d5db;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-family); }
+        body { background-color: var(--bg-color); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+
+        /* Sidebar */
+        .sidebar { width: 250px; background-color: var(--sidebar-bg); padding: 2rem; display: flex; flex-direction: column; border-right: 1px solid #333; z-index: 10; }
+        .sidebar-header { font-size: 1.5rem; font-weight: 700; margin-bottom: 3rem; color: var(--primary-color); }
+        .sidebar-nav ul { list-style: none; }
+        .sidebar-nav li { padding: 0.75rem 1rem; border-radius: 8px; cursor: pointer; color: var(--text-muted); margin-bottom: 0.5rem; transition: all 0.2s ease; }
+        .sidebar-nav li:hover, .sidebar-nav li.active { color: var(--text-main); background-color: rgba(124, 58, 237, 0.1); }
+
+        /* Main Area */
+        .main-content { flex: 1; padding: 2rem; overflow-y: auto; position: relative; }
+        .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        h1 { font-size: 2rem; font-weight: 800; }
+        .view-section { display: none; height: 100%; animation: fadeIn 0.3s ease; }
+        .view-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* General Inputs & Buttons */
+        input[type="text"], select { padding: 0.75rem 1rem; border: 1px solid #333; border-radius: 8px; background-color: var(--card-bg); color: var(--text-main); outline: none; }
+        input[type="text"]:focus, select:focus { border-color: var(--primary-color); }
+        button { cursor: pointer; border: none; border-radius: 8px; font-weight: 600; transition: all 0.2s; padding: 0.75rem 1.5rem; color: white; background-color: var(--primary-color); }
+        button:hover { background-color: var(--primary-hover); }
+
+        /* --- Kanban Board --- */
+        .input-group { display: flex; gap: 0.5rem; margin-bottom: 2rem; max-width: 600px; }
+        .input-group input { flex: 1; }
+        .kanban-board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; align-items: flex-start; }
+        .column { background-color: var(--column-bg); padding: 1.5rem; border-radius: 12px; min-height: 400px; }
+        .column-header { display: flex; justify-content: space-between; margin-bottom: 1.5rem; border-bottom: 2px solid #333; padding-bottom: 0.5rem; }
+        .task-card { background-color: var(--card-bg); padding: 1.25rem; border-radius: 10px; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+        .card-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+        .btn-card { background: transparent; color: var(--text-muted); padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+        .btn-card:hover { color: var(--primary-color); }
+        .btn-delete { color: var(--danger); }
+
+        /* --- Notebooks Dashboard --- */
+        .notebook-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.5rem; }
+        .notebook-card { 
+            background-color: var(--card-bg); border: 2px solid #333; border-radius: 12px; 
+            height: 250px; padding: 1.5rem; display: flex; flex-direction: column; 
+            justify-content: flex-end; cursor: pointer; transition: all 0.2s;
+            position: relative; overflow: hidden;
+        }
+        .notebook-card:hover { transform: translateY(-5px); border-color: var(--primary-color); box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
+        .notebook-card-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; z-index: 2; position: relative;}
+        .notebook-card-type { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; z-index: 2; position: relative;}
+        .notebook-card-delete { position: absolute; top: 10px; right: 10px; background: rgba(239, 68, 68, 0.1); color: var(--danger); padding: 0.5rem; border-radius: 6px; font-size: 0.8rem; z-index: 5; opacity: 0; }
+        .notebook-card:hover .notebook-card-delete { opacity: 1; }
+        
+        .notebook-add-card {
+            background-color: transparent; border: 2px dashed #444; border-radius: 12px;
+            height: 250px; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            cursor: pointer; transition: all 0.2s; color: var(--text-muted); gap: 1rem;
+        }
+        .notebook-add-card:hover { border-color: var(--primary-color); color: var(--primary-color); background-color: rgba(124, 58, 237, 0.05); }
+        .add-icon { font-size: 3rem; font-weight: 300; line-height: 1; }
+
+        /* --- Modal --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(3px);
+            display: none; justify-content: center; align-items: center; z-index: 100;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-content { background: var(--column-bg); padding: 2rem; border-radius: 12px; width: 400px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
+        .modal-header { font-size: 1.25rem; font-weight: 700; margin-bottom: 1.5rem; }
+        .form-group { margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; }
+        .btn-cancel { background: transparent; border: 1px solid #444; }
+        .btn-cancel:hover { background: #333; }
+
+        /* --- Active Whiteboard Styles --- */
+        .whiteboard-container { display: flex; flex-direction: column; gap: 1rem; align-items: flex-start; }
+        .toolbar { 
+            display: flex; gap: 1rem; align-items: center; background-color: var(--sidebar-bg); 
+            padding: 0.75rem 1.5rem; border-radius: 12px; border: 1px solid #333; width: 800px;
+        }
+        .tool-group { display: flex; gap: 0.5rem; align-items: center; border-right: 1px solid #444; padding-right: 1rem; }
+        .tool-group:last-child { border-right: none; margin-left: auto; }
+        .btn-tool { background-color: transparent; color: var(--text-muted); border: 1px solid transparent; padding: 0.5rem 1rem; }
+        .btn-tool.active { background-color: rgba(124, 58, 237, 0.2); color: var(--primary-color); border-color: var(--primary-color); }
+        .btn-tool:hover:not(.active) { background-color: #333; color: white; }
+        .color-picker { width: 35px; height: 35px; border: none; border-radius: 50%; cursor: pointer; padding: 0; background: none; }
+        .color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+        .color-picker::-webkit-color-swatch { border: 2px solid #444; border-radius: 50%; }
+
+        /* Canvas & Paper Backgrounds */
+        .canvas-wrapper {
+            width: 800px; height: 600px; 
+            border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            background-color: var(--paper-color);
+            position: relative; overflow: hidden; border: 1px solid #333;
+        }
+        .bg-blank { background-image: none; }
+        .bg-lined { background-image: repeating-linear-gradient(transparent, transparent 39px, var(--line-color) 39px, var(--line-color) 40px); }
+        .bg-squared { background-image: linear-gradient(var(--line-color) 1px, transparent 1px), linear-gradient(90deg, var(--line-color) 1px, transparent 1px); background-size: 40px 40px; }
+        .bg-dotted { background-image: radial-gradient(circle, var(--line-color) 2px, transparent 2px); background-size: 40px 40px; }
+        #drawCanvas { position: absolute; top: 0; left: 0; cursor: crosshair; touch-action: none; }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">denofury</div>
+        <nav class="sidebar-nav">
+            <ul>
+                <li id="nav-board" class="active">Tasks Board</li>
+                <li id="nav-notebooks">Notes & Ideas 📓</li>
+                <li>Calendar</li>
+                <li>Settings</li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        
+        <section id="view-board" class="view-section active">
+            <header class="app-header"><h1>Tasks Board</h1></header>
+            <div class="input-group">
+                <input type="text" id="taskInput" placeholder="Add new backlog task..." autocomplete="off">
+                <button id="addBtn">Add Task</button>
+            </div>
+            <div class="kanban-board">
+                <div class="column" id="col-backlog"><div class="column-header"><span>Backlog</span></div><ul class="task-list" id="list-backlog" style="list-style: none;"></ul></div>
+                <div class="column" id="col-todo"><div class="column-header"><span>To Do</span></div><ul class="task-list" id="list-todo" style="list-style: none;"></ul></div>
+                <div class="column" id="col-inprogress"><div class="column-header"><span>In Progress</span></div><ul class="task-list" id="list-inprogress" style="list-style: none;"></ul></div>
+                <div class="column" id="col-done"><div class="column-header"><span>Done</span></div><ul class="task-list" id="list-done" style="list-style: none;"></ul></div>
+            </div>
+        </section>
+
+        <section id="view-notebooks-list" class="view-section">
+            <header class="app-header"><h1>My Notebooks</h1></header>
+            <div class="notebook-grid" id="notebookGrid">
+                <div class="notebook-add-card" id="btnShowModal">
+                    <div class="add-icon">+</div>
+                    <div>Create Notebook</div>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-whiteboard" class="view-section">
+            <header class="app-header">
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <button id="btnBackToNotebooks" class="btn-cancel" style="padding: 0.5rem 1rem;">&larr; Back</button>
+                    <h1 id="activeNotebookTitle">Notebook Name</h1>
+                </div>
+            </header>
+            
+            <div class="whiteboard-container">
+                <div class="toolbar">
+                    <div class="tool-group">
+                        <button id="btnPen" class="btn-tool active">Pen</button>
+                        <button id="btnEraser" class="btn-tool">Eraser</button>
+                        <input type="color" id="colorPicker" class="color-picker" value="#1a1a1a" title="Brush Color">
+                    </div>
+                    <div class="tool-group" style="color: var(--text-muted); font-size: 0.9rem;">
+                        Paper: <span id="activePaperDisplay" style="color: white; text-transform: capitalize;">Lined</span>
+                    </div>
+                    <div class="tool-group">
+                        <button id="btnClearCanvas" class="btn-tool" style="color: var(--danger);">Clear Page</button>
+                        <button id="btnSavePdf" style="padding: 0.5rem 1rem;">Export PDF</button>
+                    </div>
+                </div>
+                
+                <div id="canvasWrapper" class="canvas-wrapper bg-lined">
+                    <canvas id="drawCanvas" width="800" height="600"></canvas>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <div class="modal-overlay" id="createNotebookModal">
+        <div class="modal-content">
+            <div class="modal-header">Create New Notebook</div>
+            <div class="form-group">
+                <label>Notebook Name</label>
+                <input type="text" id="newNotebookName" placeholder="e.g., Q3 Marketing Ideas">
+            </div>
+            <div class="form-group">
+                <label>Paper Style</label>
+                <select id="newNotebookPaper">
+                    <option value="blank">Blank Paper</option>
+                    <option value="lined">Lined Paper</option>
+                    <option value="squared">Squared / Grid</option>
+                    <option value="dotted">Dotted</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" id="btnCancelNotebook">Cancel</button>
+                <button id="btnConfirmNotebook">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // APP NAVIGATION & STATE
+        // ==========================================
+        const views = {
+            board: document.getElementById('view-board'),
+            notebooksList: document.getElementById('view-notebooks-list'),
+            whiteboard: document.getElementById('view-whiteboard')
+        };
+        const navs = {
+            board: document.getElementById('nav-board'),
+            notebooks: document.getElementById('nav-notebooks')
+        };
+
+        function switchView(viewName) {
+            // Hide all views, remove active states from nav
+            Object.values(views).forEach(v => v.classList.remove('active'));
+            Object.values(navs).forEach(n => n?.classList.remove('active'));
+            
+            // Show requested view
+            views[viewName].classList.add('active');
+            
+            // Highlight sidebar
+            if (viewName === 'board') navs.board.classList.add('active');
+            if (viewName === 'notebooksList' || viewName === 'whiteboard') navs.notebooks.classList.add('active');
+            
+            // If leaving whiteboard, save data automatically
+            if (viewName !== 'whiteboard' && activeNotebookId) {
+                saveCanvasToNotebook();
+                activeNotebookId = null;
+            }
+        }
+
+        navs.board.addEventListener('click', () => switchView('board'));
+        navs.notebooks.addEventListener('click', () => switchView('notebooksList'));
+        document.getElementById('btnBackToNotebooks').addEventListener('click', () => switchView('notebooksList'));
+
+
+        // ==========================================
+        // KANBAN LOGIC (Minified)
+        // ==========================================
+        const STATUS_FLOW = ['backlog', 'todo', 'inprogress', 'done'];
+        let tasks = JSON.parse(localStorage.getItem('tasks_kanban')) || [];
+        document.getElementById('addBtn').addEventListener('click', addTask);
+        document.getElementById('taskInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') addTask(); });
+        function addTask() { const v = document.getElementById('taskInput').value.trim(); if (!v) return; tasks.push({ id: Date.now().toString(), text: v, status: 'backlog' }); document.getElementById('taskInput').value = ''; saveAndRenderBoard(); }
+        function changeTaskStatus(id, s) { tasks = tasks.map(t => t.id === id ? { ...t, status: s } : t); saveAndRenderBoard(); }
+        function deleteT(id) { tasks = tasks.filter(t => t.id !== id); saveAndRenderBoard(); }
+        function saveAndRenderBoard() {
+            localStorage.setItem('tasks_kanban', JSON.stringify(tasks)); STATUS_FLOW.forEach(s => document.getElementById(`list-${s}`).innerHTML = '');
+            tasks.forEach(t => {
+                const li = document.createElement('li'); li.className = 'task-card'; const idx = STATUS_FLOW.indexOf(t.status); let btns = '';
+                if (idx > 0) btns += `<button class="btn-card" onclick="changeTaskStatus('${t.id}', '${STATUS_FLOW[idx - 1]}')">&laquo; Back</button>`;
+                if (idx < 3) btns += `<button class="btn-card" onclick="changeTaskStatus('${t.id}', '${STATUS_FLOW[idx + 1]}')">Next &raquo;</button>`;
+                btns += `<button class="btn-card btn-delete" onclick="deleteT('${t.id}')">Del</button>`;
+                li.innerHTML = `<span>${t.text.replace(/[&<>'"]/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[x]))}</span><div class="card-actions">${btns}</div>`;
+                document.getElementById(`list-${t.status}`).appendChild(li);
+            });
+        }
+        saveAndRenderBoard();
+
+
+        // ==========================================
+        // NOTEBOOKS MANAGER LOGIC
+        // ==========================================
+        let notebooks = JSON.parse(localStorage.getItem('notebooks_data')) || [];
+        let activeNotebookId = null;
+
+        const notebookGrid = document.getElementById('notebookGrid');
+        const modal = document.getElementById('createNotebookModal');
+        
+        // Modal toggles
+        document.getElementById('btnShowModal').addEventListener('click', () => {
+            document.getElementById('newNotebookName').value = '';
+            modal.classList.add('active');
+        });
+        document.getElementById('btnCancelNotebook').addEventListener('click', () => modal.classList.remove('active'));
+
+        // Create Notebook
+        document.getElementById('btnConfirmNotebook').addEventListener('click', () => {
+            const name = document.getElementById('newNotebookName').value.trim() || 'Untitled Notebook';
+            const paper = document.getElementById('newNotebookPaper').value;
+            
+            const newNotebook = {
+                id: 'nb_' + Date.now(),
+                name: name,
+                paperType: paper,
+                drawingData: null // Will store the canvas base64 string
+            };
+
+            notebooks.push(newNotebook);
+            saveNotebooksList();
+            renderNotebooksList();
+            modal.classList.remove('active');
+        });
+
+        // Delete Notebook
+        window.deleteNotebook = function(e, id) {
+            e.stopPropagation(); // Prevent opening the notebook when clicking delete
+            if(confirm('Are you sure you want to delete this notebook?')) {
+                notebooks = notebooks.filter(nb => nb.id !== id);
+                saveNotebooksList();
+                renderNotebooksList();
+            }
+        };
+
+        function saveNotebooksList() {
+            localStorage.setItem('notebooks_data', JSON.stringify(notebooks));
+        }
+
+        // Render Grid
+        function renderNotebooksList() {
+            // Keep the "Add" button, remove the rest
+            const addButtonHTML = `<div class="notebook-add-card" id="btnShowModal" onclick="document.getElementById('createNotebookModal').classList.add('active')">
+                <div class="add-icon">+</div><div>Create Notebook</div></div>`;
+            
+            let gridHTML = '';
+            notebooks.forEach(nb => {
+                gridHTML += `
+                    <div class="notebook-card" onclick="openNotebook('${nb.id}')">
+                        <button class="notebook-card-delete" onclick="deleteNotebook(event, '${nb.id}')">Delete</button>
+                        <div class="notebook-card-title">${nb.name.replace(/[&<>'"]/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[x]))}</div>
+                        <div class="notebook-card-type">${nb.paperType} Paper</div>
+                    </div>
+                `;
+            });
+            notebookGrid.innerHTML = gridHTML + addButtonHTML;
+        }
+
+        // ==========================================
+        // ACTIVE WHITEBOARD CANVAS LOGIC
+        // ==========================================
+        const canvas = document.getElementById('drawCanvas');
+        const ctx = canvas.getContext('2d');
+        const canvasWrapper = document.getElementById('canvasWrapper');
+        const colorPicker = document.getElementById('colorPicker');
+        let isDrawing = false, isEraser = false, points = [];
+
+        // Open a specific notebook
+        window.openNotebook = function(id) {
+            const notebook = notebooks.find(nb => nb.id === id);
+            if (!notebook) return;
+
+            activeNotebookId = id;
+            document.getElementById('activeNotebookTitle').innerText = notebook.name;
+            document.getElementById('activePaperDisplay').innerText = notebook.paperType;
+            
+            // Lock in the CSS paper background
+            canvasWrapper.className = `canvas-wrapper bg-${notebook.paperType}`;
+
+            // Clear canvas for fresh draw
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // If it has saved drawing data, render it onto the canvas
+            if (notebook.drawingData) {
+                const img = new Image();
+                img.onload = () => ctx.drawImage(img, 0, 0);
+                img.src = notebook.drawingData;
+            }
+
+            switchView('whiteboard');
+        };
+
+        // Tool Selection
+        const btnPen = document.getElementById('btnPen');
+        const btnEraser = document.getElementById('btnEraser');
+        btnPen.addEventListener('click', () => { isEraser = false; btnPen.classList.add('active'); btnEraser.classList.remove('active'); canvas.style.cursor = 'crosshair'; });
+        btnEraser.addEventListener('click', () => { isEraser = true; btnEraser.classList.add('active'); btnPen.classList.remove('active'); canvas.style.cursor = 'cell'; });
+
+        function setupBrush() {
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            if (isEraser) { ctx.globalCompositeOperation = 'destination-out'; ctx.lineWidth = 25; } 
+            else { ctx.globalCompositeOperation = 'source-over'; ctx.lineWidth = 3; ctx.strokeStyle = colorPicker.value; }
+        }
+
+        // Drawing Events
+        canvas.addEventListener('mousedown', (e) => { isDrawing = true; points = [{ x: e.offsetX, y: e.offsetY }]; });
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            points.push({ x: e.offsetX, y: e.offsetY });
+            setupBrush(); ctx.beginPath();
+            if (points.length < 3) { let b = points[0]; ctx.moveTo(b.x, b.y); ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); return; }
+            let p0 = points[points.length - 3], p1 = points[points.length - 2], p2 = points[points.length - 1];
+            let mid1X = (p0.x + p1.x) / 2, mid1Y = (p0.y + p1.y) / 2;
+            let mid2X = (p1.x + p2.x) / 2, mid2Y = (p1.y + p2.y) / 2;
+            ctx.moveTo(mid1X, mid1Y); ctx.quadraticCurveTo(p1.x, p1.y, mid2X, mid2Y); ctx.stroke();
+        });
+
+        canvas.addEventListener('mouseup', () => { 
+            if(isDrawing) { isDrawing = false; saveCanvasToNotebook(); } 
+        });
+        canvas.addEventListener('mouseout', () => { 
+            if(isDrawing) { isDrawing = false; saveCanvasToNotebook(); } 
+        });
+
+        // Clear Canvas Button
+        document.getElementById('btnClearCanvas').addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            saveCanvasToNotebook();
+        });
+
+        // Auto-save the canvas data string to the active notebook object
+        function saveCanvasToNotebook() {
+            if (!activeNotebookId) return;
+            const notebookIndex = notebooks.findIndex(nb => nb.id === activeNotebookId);
+            if (notebookIndex > -1) {
+                // Save canvas as base64 string
+                notebooks[notebookIndex].drawingData = canvas.toDataURL('image/png');
+                saveNotebooksList();
+            }
+        }
+
+        // PDF Export
+        document.getElementById('btnSavePdf').addEventListener('click', () => {
+            const notebook = notebooks.find(nb => nb.id === activeNotebookId);
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('l', 'pt', [canvas.width, canvas.height]);
+            const tmpCanvas = document.createElement('canvas');
+            tmpCanvas.width = canvas.width; tmpCanvas.height = canvas.height;
+            const tCtx = tmpCanvas.getContext('2d');
+            
+            tCtx.fillStyle = '#fdfdfc'; tCtx.fillRect(0, 0, tmpCanvas.width, tmpCanvas.height);
+            const currentPaper = notebook.paperType;
+            tCtx.strokeStyle = '#d1d5db'; tCtx.fillStyle = '#d1d5db'; tCtx.lineWidth = 1;
+
+            if (currentPaper === 'lined' || currentPaper === 'squared') { for(let y = 40; y < tmpCanvas.height; y+=40) { tCtx.beginPath(); tCtx.moveTo(0, y); tCtx.lineTo(tmpCanvas.width, y); tCtx.stroke(); } }
+            if (currentPaper === 'squared') { for(let x = 40; x < tmpCanvas.width; x+=40) { tCtx.beginPath(); tCtx.moveTo(x, 0); tCtx.lineTo(x, tmpCanvas.height); tCtx.stroke(); } }
+            if (currentPaper === 'dotted') { for(let y = 40; y < tmpCanvas.height; y+=40) { for(let x = 40; x < tmpCanvas.width; x+=40) { tCtx.beginPath(); tCtx.arc(x, y, 2, 0, Math.PI*2); tCtx.fill(); } } }
+
+            tCtx.drawImage(canvas, 0, 0);
+            const finalImage = tmpCanvas.toDataURL('image/jpeg', 1.0);
+            pdf.addImage(finalImage, 'JPEG', 0, 0, canvas.width, canvas.height);
+            pdf.save(`${notebook.name || 'Notes'}.pdf`);
+        });
+
+        // Initialize App
+        renderNotebooksList();
+    </script>
+</body>
+</html>
