@@ -34,7 +34,6 @@ navs.calendar.addEventListener('click', () => { switchView('calendar'); renderCa
 navs.notebooks.addEventListener('click', () => switchView('notebooksList'));
 document.getElementById('btnBackToNotebooks').addEventListener('click', () => switchView('notebooksList'));
 
-
 // ==========================================
 // TASK & EVENT CREATION LOGIC
 // ==========================================
@@ -79,7 +78,6 @@ function openTaskModal(prefillDate = null, isCalendarEvent = false) {
     document.getElementById('newTaskDesc').value = '';
     document.getElementById('newTaskDate').value = prefillDate || '';
     document.getElementById('newTaskTime').value = '';
-    
     document.getElementById('taskModalHeader').innerText = isCalendarEvent ? 'New Event' : 'New Task';
     
     isEventToggle.checked = isCalendarEvent;
@@ -141,7 +139,6 @@ function renderTaskList() {
     sortedTasks.forEach(t => {
         const hasDesc = t.description ? true : false;
         const metaText = formatDisplayDate(t.date, t.time);
-        
         container.innerHTML += `
             <div class="task-item" id="${t.id}" onclick="toggleTaskDesc('${t.id}')" style="cursor: ${hasDesc ? 'pointer' : 'default'}">
                 <div class="task-header">
@@ -157,7 +154,6 @@ function renderTaskList() {
         `;
     });
 }
-
 
 // ==========================================
 // CALENDAR GRID LOGIC
@@ -175,7 +171,6 @@ function renderCalendar() {
     grid.innerHTML = '';
     const year = currentCalendarDate.getFullYear();
     const month = currentCalendarDate.getMonth();
-    
     const firstDayIndex = new Date(year, month, 1).getDay(); 
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     
@@ -200,7 +195,7 @@ saveAndRenderData();
 
 
 // ==========================================
-// NOTEBOOKS & HIGH-DPI WHITEBOARD LOGIC
+// NOTEBOOKS LOGIC
 // ==========================================
 let notebooks = JSON.parse(localStorage.getItem('notebooks_data')) || [];
 let activeNotebookId = null;
@@ -233,26 +228,36 @@ function renderNotebooksList() {
     notebookGrid.innerHTML = gridHTML + addButtonHTML;
 }
 
+// ==========================================
+// HIGH-FIDELITY APPLE PENCIL ENGINE
+// ==========================================
 const canvas = document.getElementById('drawCanvas');
-const ctx = canvas.getContext('2d');
+const ctx = canvas.getContext('2d', { desynchronized: true }); // Faster rendering on iPad
 const canvasWrapper = document.getElementById('canvasWrapper');
 const colorPicker = document.getElementById('colorPicker');
 const toolbar = document.querySelector('.toolbar');
 
-let isDrawing = false, isEraser = false, points = [];
-let saveTimeout = null; // Debounce timer to prevent iPad stuttering
+let isDrawing = false, isEraser = false;
+let lastX = 0, lastY = 0;
+let saveTimeout = null; 
 
-// Make canvas razor sharp on iPads (Retina displays)
+// Retina Setup
 function setupRetinaCanvas() {
     const dpr = window.devicePixelRatio || 1;
-    // The visual CSS size
     canvas.style.width = '800px';
     canvas.style.height = '600px';
-    // The actual pixel density size
     canvas.width = 800 * dpr;
     canvas.height = 600 * dpr;
-    // Normalize coordinates so our drawing math still works
     ctx.scale(dpr, dpr);
+}
+
+// Get accurate coordinates regardless of scaling or palm resting
+function getCoords(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+    };
 }
 
 window.openNotebook = function(id) {
@@ -263,13 +268,11 @@ window.openNotebook = function(id) {
     document.getElementById('activePaperDisplay').innerText = notebook.paperType;
     canvasWrapper.className = `canvas-wrapper bg-${notebook.paperType}`; 
     
-    // Setup crisp iPad display
     setupRetinaCanvas();
     ctx.clearRect(0, 0, 800, 600); 
     
     if (notebook.drawingData) { 
         const img = new Image(); 
-        // Draw the saved image to fit our 800x600 logical space
         img.onload = () => ctx.drawImage(img, 0, 0, 800, 600); 
         img.src = notebook.drawingData; 
     }
@@ -292,15 +295,18 @@ function setupBrush() {
     }
 }
 
+// Drawing Events
 canvas.addEventListener('pointerdown', (e) => { 
-    if (e.pointerType === 'touch') return; // Palm Rejection
-    
+    if (e.pointerType === 'touch') return; 
+    e.preventDefault(); // CRITICAL FIX: Stops Safari from stealing strokes
+
     isDrawing = true; 
-    points = [{ x: e.offsetX, y: e.offsetY }]; 
+    const coords = getCoords(e);
+    lastX = coords.x;
+    lastY = coords.y;
+
     canvas.setPointerCapture(e.pointerId); 
-    toolbar.style.pointerEvents = 'none'; // Force Field
-    
-    // Cancel any pending saves if the user starts drawing quickly again
+    toolbar.style.pointerEvents = 'none'; 
     if (saveTimeout) clearTimeout(saveTimeout);
 });
 
@@ -308,48 +314,38 @@ canvas.addEventListener('pointermove', (e) => {
     if (!isDrawing || e.pointerType === 'touch') return; 
     e.preventDefault(); 
     
-    points.push({ x: e.offsetX, y: e.offsetY }); 
-    setupBrush(); 
-    ctx.beginPath();
+    setupBrush();
     
-    if (points.length < 3) { 
-        let b = points[0]; 
-        ctx.moveTo(b.x, b.y); 
-        ctx.lineTo(e.offsetX, e.offsetY); 
-        ctx.stroke(); 
-        return; 
+    // CRITICAL FIX: Read Apple Pencil's 240Hz sub-frames for perfect curves
+    const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    
+    for (let ev of events) {
+        const coords = getCoords(ev);
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(coords.x, coords.y);
+        ctx.stroke();
+        lastX = coords.x;
+        lastY = coords.y;
     }
-    
-    let p0 = points[points.length - 3], p1 = points[points.length - 2], p2 = points[points.length - 1];
-    let mid1X = (p0.x + p1.x) / 2, mid1Y = (p0.y + p1.y) / 2; 
-    let mid2X = (p1.x + p2.x) / 2, mid2Y = (p1.y + p2.y) / 2;
-    
-    ctx.moveTo(mid1X, mid1Y); 
-    ctx.quadraticCurveTo(p1.x, p1.y, mid2X, mid2Y); 
-    ctx.stroke();
 });
 
 canvas.addEventListener('pointerup', (e) => { 
     if (e.pointerType === 'touch') return;
-    
     if (isDrawing) { 
         isDrawing = false; 
-        // Delay save by 1000ms to allow fast multi-stroke writing without stuttering
-        saveTimeout = setTimeout(() => {
-            saveCanvasToNotebook();
-        }, 1000); 
+        saveTimeout = setTimeout(saveCanvasToNotebook, 1500); // 1.5s debounce to fix saving stutter
     } 
-    toolbar.style.pointerEvents = 'auto'; // Remove Force Field
+    toolbar.style.pointerEvents = 'auto'; 
 });
 
 canvas.addEventListener('pointercancel', (e) => { 
     if (e.pointerType === 'touch') return;
-    
     if (isDrawing) { 
         isDrawing = false; 
-        saveTimeout = setTimeout(() => { saveCanvasToNotebook(); }, 1000); 
+        saveTimeout = setTimeout(saveCanvasToNotebook, 1500); 
     } 
-    toolbar.style.pointerEvents = 'auto'; // Remove Force Field
+    toolbar.style.pointerEvents = 'auto'; 
 });
 
 document.getElementById('btnClearCanvas').addEventListener('click', () => { 
@@ -370,30 +366,20 @@ document.getElementById('btnSavePdf').addEventListener('click', () => {
     const notebook = notebooks.find(nb => nb.id === activeNotebookId);
     const { jsPDF } = window.jspdf; 
     const pdf = new jsPDF('l', 'pt', [800, 600]);
-    
     const tmpCanvas = document.createElement('canvas'); 
-    tmpCanvas.width = 800; 
-    tmpCanvas.height = 600; 
+    tmpCanvas.width = 800; tmpCanvas.height = 600; 
     const tCtx = tmpCanvas.getContext('2d');
     
-    tCtx.fillStyle = '#ffffff'; 
-    tCtx.fillRect(0, 0, 800, 600);
-    
-    const currentPaper = notebook.paperType; 
-    tCtx.strokeStyle = '#e5e5ea'; 
-    tCtx.fillStyle = '#e5e5ea'; 
-    tCtx.lineWidth = 1;
+    tCtx.fillStyle = '#ffffff'; tCtx.fillRect(0, 0, 800, 600);
+    const currentPaper = notebook.paperType; tCtx.strokeStyle = '#e5e5ea'; tCtx.fillStyle = '#e5e5ea'; tCtx.lineWidth = 1;
     
     if (currentPaper === 'lined' || currentPaper === 'squared') { for(let y = 40; y < 600; y+=40) { tCtx.beginPath(); tCtx.moveTo(0, y); tCtx.lineTo(800, y); tCtx.stroke(); } }
     if (currentPaper === 'squared') { for(let x = 40; x < 800; x+=40) { tCtx.beginPath(); tCtx.moveTo(x, 0); tCtx.lineTo(x, 600); tCtx.stroke(); } }
     if (currentPaper === 'dotted') { for(let y = 40; y < 600; y+=40) { for(let x = 40; x < 800; x+=40) { tCtx.beginPath(); tCtx.arc(x, y, 2, 0, Math.PI*2); tCtx.fill(); } } }
     
-    // Draw our high-res canvas onto the PDF logic canvas correctly
     tCtx.drawImage(canvas, 0, 0, 800, 600); 
     const finalImage = tmpCanvas.toDataURL('image/jpeg', 1.0);
-    
-    pdf.addImage(finalImage, 'JPEG', 0, 0, 800, 600); 
-    pdf.save(`${notebook.name || 'Notes'}.pdf`);
+    pdf.addImage(finalImage, 'JPEG', 0, 0, 800, 600); pdf.save(`${notebook.name || 'Notes'}.pdf`);
 });
 
 renderNotebooksList();
