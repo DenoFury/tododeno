@@ -34,7 +34,6 @@ navs.calendar.addEventListener('click', () => { switchView('calendar'); renderCa
 navs.notebooks.addEventListener('click', () => switchView('notebooksList'));
 document.getElementById('btnBackToNotebooks').addEventListener('click', () => switchView('notebooksList'));
 
-
 // ==========================================
 // TASK & EVENT CREATION LOGIC
 // ==========================================
@@ -44,22 +43,17 @@ const isEventToggle = document.getElementById('isEventToggle');
 const dateTimeInputs = document.getElementById('dateTimeInputs');
 let selectedTaskColor = 'var(--color-red)';
 
-// Security encoding
-function escapeHTML(str) {
-    return str.replace(/[&<>'"]/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[x]));
-}
+function escapeHTML(str) { return str.replace(/[&<>'"]/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[x])); }
 
-// Format Date string nicely
 function formatDisplayDate(dateStr, timeStr) {
     if (!dateStr) return '';
-    const dateObj = new Date(dateStr + 'T00:00:00'); // Force local timezone parsing
+    const dateObj = new Date(dateStr + 'T00:00:00'); 
     const options = { month: 'short', day: 'numeric' };
     let formatted = dateObj.toLocaleDateString(undefined, options);
     if (timeStr) formatted += ` at ${timeStr}`;
     return formatted;
 }
 
-// Color Selection
 document.querySelectorAll('.color-swatch').forEach(swatch => {
     swatch.addEventListener('click', (e) => {
         document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
@@ -68,19 +62,15 @@ document.querySelectorAll('.color-swatch').forEach(swatch => {
     });
 });
 
-// Toggle Date/Time inputs
 isEventToggle.addEventListener('change', (e) => {
     if(e.target.checked) {
         dateTimeInputs.classList.add('active');
-        if(!document.getElementById('newTaskDate').value) {
-            document.getElementById('newTaskDate').value = new Date().toISOString().split('T')[0];
-        }
+        if(!document.getElementById('newTaskDate').value) document.getElementById('newTaskDate').value = new Date().toISOString().split('T')[0];
     } else {
         dateTimeInputs.classList.remove('active');
     }
 });
 
-// Open Modal logic
 function openTaskModal(prefillDate = null, isCalendarEvent = false) {
     document.getElementById('newTaskTitle').value = '';
     document.getElementById('newTaskDesc').value = '';
@@ -96,19 +86,16 @@ function openTaskModal(prefillDate = null, isCalendarEvent = false) {
     } else {
         dateTimeInputs.classList.remove('active');
     }
-
     taskModal.classList.add('active');
     document.getElementById('newTaskTitle').focus();
 }
 
-// Connect Buttons to Modal
 document.getElementById('btnShowTaskModal').addEventListener('click', () => openTaskModal(null, false));
 document.getElementById('btnCreateEvent').addEventListener('click', () => openTaskModal(null, true));
-window.openModalForDate = function(dateStr) { openTaskModal(dateStr, true); }; // For calendar grid clicks
+window.openModalForDate = function(dateStr) { openTaskModal(dateStr, true); }; 
 
 document.getElementById('btnCancelTask').addEventListener('click', () => taskModal.classList.remove('active'));
 
-// Save Task/Event
 document.getElementById('btnConfirmTask').addEventListener('click', () => {
     const title = document.getElementById('newTaskTitle').value.trim();
     const desc = document.getElementById('newTaskDesc').value.trim();
@@ -119,51 +106,28 @@ document.getElementById('btnConfirmTask').addEventListener('click', () => {
     if (!title) return alert("Title is required.");
     if (isEvent && !date) return alert("Date is required for an event.");
 
-    tasks.push({
-        id: 'task_' + Date.now(),
-        title: title,
-        description: desc,
-        color: selectedTaskColor,
-        date: date,
-        time: time
-    });
-
+    tasks.push({ id: 'task_' + Date.now(), title: title, description: desc, color: selectedTaskColor, date: date, time: time });
     saveAndRenderData();
     taskModal.classList.remove('active');
 });
 
-// Delete/Complete
-window.completeTask = function(e, id) {
-    e.stopPropagation(); 
-    tasks = tasks.filter(t => t.id !== id);
-    saveAndRenderData();
-};
-
+window.completeTask = function(e, id) { e.stopPropagation(); tasks = tasks.filter(t => t.id !== id); saveAndRenderData(); };
 window.toggleTaskDesc = function(id) {
     const taskElement = document.getElementById(id);
-    if(taskElement.querySelector('.task-description').innerText !== "") {
-        taskElement.classList.toggle('expanded');
-    }
+    if(taskElement.querySelector('.task-description').innerText !== "") taskElement.classList.toggle('expanded');
 };
 
-// Update Both Views
 function saveAndRenderData() {
     localStorage.setItem('apple_style_tasks', JSON.stringify(tasks));
     renderTaskList();
     renderCalendar();
 }
 
-// Render the List View
 function renderTaskList() {
     const container = document.getElementById('taskListContainer');
-    
-    if (tasks.length === 0) {
-        container.innerHTML = '<div class="empty-tasks">All caught up! No active tasks or events.</div>';
-        return;
-    }
+    if (tasks.length === 0) { container.innerHTML = '<div class="empty-tasks">All caught up! No active tasks or events.</div>'; return; }
 
     container.innerHTML = '';
-    // Sort tasks: Undated first, then chronological
     let sortedTasks = [...tasks].sort((a, b) => {
         if (!a.date && b.date) return -1;
         if (a.date && !b.date) return 1;
@@ -191,7 +155,6 @@ function renderTaskList() {
     });
 }
 
-
 // ==========================================
 // CALENDAR GRID LOGIC
 // ==========================================
@@ -203,56 +166,36 @@ document.getElementById('btnToday').addEventListener('click', () => { currentCal
 
 function renderCalendar() {
     const grid = document.getElementById('calendarGrid');
-    if (!grid) return; // Prevent errors if on another view
+    if (!grid) return; 
     
     grid.innerHTML = '';
-    
     const year = currentCalendarDate.getFullYear();
     const month = currentCalendarDate.getMonth();
     
-    const firstDayIndex = new Date(year, month, 1).getDay(); // 0(Sun) to 6(Sat)
+    const firstDayIndex = new Date(year, month, 1).getDay(); 
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     document.getElementById('calendarMonthYear').innerText = `${monthNames[month]} ${year}`;
     
-    // Blank days before the 1st
-    for(let i=0; i<firstDayIndex; i++) {
-        grid.innerHTML += `<div class="calendar-day empty"></div>`;
-    }
+    for(let i=0; i<firstDayIndex; i++) grid.innerHTML += `<div class="calendar-day empty"></div>`;
     
-    // Calculate Today
     const today = new Date();
     
-    // Fill the actual days
     for(let i=1; i<=daysInMonth; i++) {
-        // Create YYYY-MM-DD string to match input format
         const dateStr = `${year}-${String(month+1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
         const isToday = i === today.getDate() && month === today.getMonth() && year === today.getFullYear();
         
-        // Find tasks that fall on this day
         const dayEvents = tasks.filter(t => t.date === dateStr);
-        let eventsHTML = dayEvents.map(t => `
-            <div class="event-badge" style="background-color: ${t.color}" title="${escapeHTML(t.title)}">
-                ${t.time ? t.time + ' ' : ''}${escapeHTML(t.title)}
-            </div>
-        `).join('');
+        let eventsHTML = dayEvents.map(t => `<div class="event-badge" style="background-color: ${t.color}" title="${escapeHTML(t.title)}">${t.time ? t.time + ' ' : ''}${escapeHTML(t.title)}</div>`).join('');
 
-        grid.innerHTML += `
-            <div class="calendar-day ${isToday ? 'today' : ''}" onclick="openModalForDate('${dateStr}')">
-                <div class="day-number">${i}</div>
-                ${eventsHTML}
-            </div>
-        `;
+        grid.innerHTML += `<div class="calendar-day ${isToday ? 'today' : ''}" onclick="openModalForDate('${dateStr}')"><div class="day-number">${i}</div>${eventsHTML}</div>`;
     }
 }
-
-// Initial Data Load
 saveAndRenderData();
 
-
 // ==========================================
-// NOTEBOOKS & WHITEBOARD LOGIC (Unchanged)
+// NOTEBOOKS & HIGH-DPI WHITEBOARD LOGIC
 // ==========================================
 let notebooks = JSON.parse(localStorage.getItem('notebooks_data')) || [];
 let activeNotebookId = null;
@@ -289,14 +232,40 @@ const canvas = document.getElementById('drawCanvas');
 const ctx = canvas.getContext('2d');
 const canvasWrapper = document.getElementById('canvasWrapper');
 const colorPicker = document.getElementById('colorPicker');
+const toolbar = document.querySelector('.toolbar');
 let isDrawing = false, isEraser = false, points = [];
+
+// NEW: Make canvas razor sharp on iPads (Retina displays)
+function setupRetinaCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    // The visual CSS size
+    canvas.style.width = '800px';
+    canvas.style.height = '600px';
+    // The actual pixel density size
+    canvas.width = 800 * dpr;
+    canvas.height = 600 * dpr;
+    // Normalize coordinates so our drawing math still works
+    ctx.scale(dpr, dpr);
+}
 
 window.openNotebook = function(id) {
     const notebook = notebooks.find(nb => nb.id === id);
     if (!notebook) return;
-    activeNotebookId = id; document.getElementById('activeNotebookTitle').innerText = notebook.name; document.getElementById('activePaperDisplay').innerText = notebook.paperType;
-    canvasWrapper.className = `canvas-wrapper bg-${notebook.paperType}`; ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (notebook.drawingData) { const img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0); img.src = notebook.drawingData; }
+    activeNotebookId = id; 
+    document.getElementById('activeNotebookTitle').innerText = notebook.name; 
+    document.getElementById('activePaperDisplay').innerText = notebook.paperType;
+    canvasWrapper.className = `canvas-wrapper bg-${notebook.paperType}`; 
+    
+    // Setup crisp iPad display
+    setupRetinaCanvas();
+    ctx.clearRect(0, 0, 800, 600); 
+    
+    if (notebook.drawingData) { 
+        const img = new Image(); 
+        // Draw the saved image to fit our 800x600 logical space
+        img.onload = () => ctx.drawImage(img, 0, 0, 800, 600); 
+        img.src = notebook.drawingData; 
+    }
     switchView('whiteboard');
 };
 
@@ -309,55 +278,37 @@ function setupBrush() {
     if (isEraser) { ctx.globalCompositeOperation = 'destination-out'; ctx.lineWidth = 25; } else { ctx.globalCompositeOperation = 'source-over'; ctx.lineWidth = 3; ctx.strokeStyle = colorPicker.value; }
 }
 
-const toolbar = document.querySelector('.toolbar');
-
 canvas.addEventListener('pointerdown', (e) => { 
-    if (e.pointerType === 'touch') return; // Ignore fingers/palms on canvas
-    
+    if (e.pointerType === 'touch') return; // Palm Rejection
     isDrawing = true; 
     points = [{ x: e.offsetX, y: e.offsetY }]; 
     canvas.setPointerCapture(e.pointerId); 
-
-    // THE FORCE FIELD: Disable toolbar buttons while the pen is touching the screen
-    toolbar.style.pointerEvents = 'none';
+    toolbar.style.pointerEvents = 'none'; // Force Field
 });
 
 canvas.addEventListener('pointermove', (e) => {
     if (!isDrawing || e.pointerType === 'touch') return; 
     e.preventDefault(); 
-    
-    points.push({ x: e.offsetX, y: e.offsetY }); 
-    setupBrush(); 
-    ctx.beginPath();
-    
-    if (points.length < 3) { 
-        let b = points[0]; ctx.moveTo(b.x, b.y); ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); 
-        return; 
-    }
-    
+    points.push({ x: e.offsetX, y: e.offsetY }); setupBrush(); ctx.beginPath();
+    if (points.length < 3) { let b = points[0]; ctx.moveTo(b.x, b.y); ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); return; }
     let p0 = points[points.length - 3], p1 = points[points.length - 2], p2 = points[points.length - 1];
-    let mid1X = (p0.x + p1.x) / 2, mid1Y = (p0.y + p1.y) / 2; 
-    let mid2X = (p1.x + p2.x) / 2, mid2Y = (p1.y + p2.y) / 2;
-    
+    let mid1X = (p0.x + p1.x) / 2, mid1Y = (p0.y + p1.y) / 2; let mid2X = (p1.x + p2.x) / 2, mid2Y = (p1.y + p2.y) / 2;
     ctx.moveTo(mid1X, mid1Y); ctx.quadraticCurveTo(p1.x, p1.y, mid2X, mid2Y); ctx.stroke();
 });
 
 canvas.addEventListener('pointerup', (e) => { 
     if (e.pointerType === 'touch') return;
     if(isDrawing) { isDrawing = false; saveCanvasToNotebook(); } 
-    
-    // REMOVE FORCE FIELD: Turn toolbar buttons back on
-    toolbar.style.pointerEvents = 'auto';
+    toolbar.style.pointerEvents = 'auto'; // Remove Force Field
 });
 
 canvas.addEventListener('pointercancel', (e) => { 
     if (e.pointerType === 'touch') return;
     if(isDrawing) { isDrawing = false; saveCanvasToNotebook(); } 
-    
-    // REMOVE FORCE FIELD: Turn toolbar buttons back on
-    toolbar.style.pointerEvents = 'auto';
+    toolbar.style.pointerEvents = 'auto'; // Remove Force Field
 });
-document.getElementById('btnClearCanvas').addEventListener('click', () => { ctx.clearRect(0, 0, canvas.width, canvas.height); saveCanvasToNotebook(); });
+
+document.getElementById('btnClearCanvas').addEventListener('click', () => { ctx.clearRect(0, 0, 800, 600); saveCanvasToNotebook(); });
 
 function saveCanvasToNotebook() {
     if (!activeNotebookId) return; const notebookIndex = notebooks.findIndex(nb => nb.id === activeNotebookId);
@@ -366,15 +317,24 @@ function saveCanvasToNotebook() {
 
 document.getElementById('btnSavePdf').addEventListener('click', () => {
     const notebook = notebooks.find(nb => nb.id === activeNotebookId);
-    const { jsPDF } = window.jspdf; const pdf = new jsPDF('l', 'pt', [canvas.width, canvas.height]);
-    const tmpCanvas = document.createElement('canvas'); tmpCanvas.width = canvas.width; tmpCanvas.height = canvas.height; const tCtx = tmpCanvas.getContext('2d');
-    tCtx.fillStyle = '#ffffff'; tCtx.fillRect(0, 0, tmpCanvas.width, tmpCanvas.height);
+    const { jsPDF } = window.jspdf; const pdf = new jsPDF('l', 'pt', [800, 600]);
+    
+    const tmpCanvas = document.createElement('canvas'); 
+    tmpCanvas.width = 800; tmpCanvas.height = 600; 
+    const tCtx = tmpCanvas.getContext('2d');
+    tCtx.fillStyle = '#ffffff'; tCtx.fillRect(0, 0, 800, 600);
+    
     const currentPaper = notebook.paperType; tCtx.strokeStyle = '#e5e5ea'; tCtx.fillStyle = '#e5e5ea'; tCtx.lineWidth = 1;
-    if (currentPaper === 'lined' || currentPaper === 'squared') { for(let y = 40; y < tmpCanvas.height; y+=40) { tCtx.beginPath(); tCtx.moveTo(0, y); tCtx.lineTo(tmpCanvas.width, y); tCtx.stroke(); } }
-    if (currentPaper === 'squared') { for(let x = 40; x < tmpCanvas.width; x+=40) { tCtx.beginPath(); tCtx.moveTo(x, 0); tCtx.lineTo(x, tmpCanvas.height); tCtx.stroke(); } }
-    if (currentPaper === 'dotted') { for(let y = 40; y < tmpCanvas.height; y+=40) { for(let x = 40; x < tmpCanvas.width; x+=40) { tCtx.beginPath(); tCtx.arc(x, y, 2, 0, Math.PI*2); tCtx.fill(); } } }
-    tCtx.drawImage(canvas, 0, 0); const finalImage = tmpCanvas.toDataURL('image/jpeg', 1.0);
-    pdf.addImage(finalImage, 'JPEG', 0, 0, canvas.width, canvas.height); pdf.save(`${notebook.name || 'Notes'}.pdf`);
+    if (currentPaper === 'lined' || currentPaper === 'squared') { for(let y = 40; y < 600; y+=40) { tCtx.beginPath(); tCtx.moveTo(0, y); tCtx.lineTo(800, y); tCtx.stroke(); } }
+    if (currentPaper === 'squared') { for(let x = 40; x < 800; x+=40) { tCtx.beginPath(); tCtx.moveTo(x, 0); tCtx.lineTo(x, 600); tCtx.stroke(); } }
+    if (currentPaper === 'dotted') { for(let y = 40; y < 600; y+=40) { for(let x = 40; x < 800; x+=40) { tCtx.beginPath(); tCtx.arc(x, y, 2, 0, Math.PI*2); tCtx.fill(); } } }
+    
+    // Draw our high-res canvas onto the PDF logic canvas correctly
+    tCtx.drawImage(canvas, 0, 0, 800, 600); 
+    const finalImage = tmpCanvas.toDataURL('image/jpeg', 1.0);
+    
+    pdf.addImage(finalImage, 'JPEG', 0, 0, 800, 600); 
+    pdf.save(`${notebook.name || 'Notes'}.pdf`);
 });
 
 renderNotebooksList();
