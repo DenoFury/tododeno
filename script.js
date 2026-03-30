@@ -295,19 +295,25 @@ function setupBrush() {
     }
 }
 
-// Drawing Events
 canvas.addEventListener('pointerdown', (e) => { 
-    if (e.pointerType === 'touch') return; 
-    e.preventDefault(); // CRITICAL FIX: Stops Safari from stealing strokes
+    if (e.pointerType === 'touch') return; // Palm Rejection
+    e.preventDefault(); // Stops Safari from stealing strokes
 
     isDrawing = true; 
     const coords = getCoords(e);
-    lastX = coords.x;
-    lastY = coords.y;
+    points = [coords]; // Start a fresh point array for smoothing
 
     canvas.setPointerCapture(e.pointerId); 
-    toolbar.style.pointerEvents = 'none'; 
+    toolbar.style.pointerEvents = 'none'; // Force Field
     if (saveTimeout) clearTimeout(saveTimeout);
+
+    // INSTANT INK FIX: Draw a tiny dot the exact millisecond the pen touches
+    // This guarantees fast, short strokes (like crossing a "t" or a "7") never drop!
+    setupBrush();
+    ctx.beginPath();
+    ctx.moveTo(coords.x, coords.y);
+    ctx.lineTo(coords.x + 0.1, coords.y + 0.1); 
+    ctx.stroke();
 });
 
 canvas.addEventListener('pointermove', (e) => {
@@ -316,17 +322,29 @@ canvas.addEventListener('pointermove', (e) => {
     
     setupBrush();
     
-    // CRITICAL FIX: Read Apple Pencil's 240Hz sub-frames for perfect curves
+    // Read the ultra-fast Apple Pencil sub-frames
     const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
     
     for (let ev of events) {
         const coords = getCoords(ev);
-        ctx.beginPath();
-        ctx.moveTo(lastX, lastY);
-        ctx.lineTo(coords.x, coords.y);
-        ctx.stroke();
-        lastX = coords.x;
-        lastY = coords.y;
+        points.push(coords);
+        
+        // BEZIER SMOOTHING: Restored for buttery smooth curves
+        if (points.length >= 3) {
+            ctx.beginPath();
+            let p0 = points[points.length - 3];
+            let p1 = points[points.length - 2];
+            let p2 = points[points.length - 1];
+            
+            let mid1X = (p0.x + p1.x) / 2;
+            let mid1Y = (p0.y + p1.y) / 2;
+            let mid2X = (p1.x + p2.x) / 2;
+            let mid2Y = (p1.y + p2.y) / 2;
+            
+            ctx.moveTo(mid1X, mid1Y);
+            ctx.quadraticCurveTo(p1.x, p1.y, mid2X, mid2Y);
+            ctx.stroke();
+        }
     }
 });
 
