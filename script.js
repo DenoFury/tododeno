@@ -309,16 +309,50 @@ function setupBrush() {
     if (isEraser) { ctx.globalCompositeOperation = 'destination-out'; ctx.lineWidth = 25; } else { ctx.globalCompositeOperation = 'source-over'; ctx.lineWidth = 3; ctx.strokeStyle = colorPicker.value; }
 }
 
-canvas.addEventListener('pointerdown', (e) => { isDrawing = true; points = [{ x: e.offsetX, y: e.offsetY }]; canvas.setPointerCapture(e.pointerId); });
-canvas.addEventListener('pointermove', (e) => {
-    if (!isDrawing) return; e.preventDefault(); points.push({ x: e.offsetX, y: e.offsetY }); setupBrush(); ctx.beginPath();
-    if (points.length < 3) { let b = points[0]; ctx.moveTo(b.x, b.y); ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); return; }
-    let p0 = points[points.length - 3], p1 = points[points.length - 2], p2 = points[points.length - 1];
-    let mid1X = (p0.x + p1.x) / 2, mid1Y = (p0.y + p1.y) / 2; let mid2X = (p1.x + p2.x) / 2, mid2Y = (p1.y + p2.y) / 2;
-    ctx.moveTo(mid1X, mid1Y); ctx.quadraticCurveTo(p1.x, p1.y, mid2X, mid2Y); ctx.stroke();
+canvas.addEventListener('pointerdown', (e) => { 
+    // PALM REJECTION: Ignore fingers and palms. Only accept Apple Pencil ('pen') or desktop clicks ('mouse')
+    if (e.pointerType === 'touch') return; 
+
+    isDrawing = true; 
+    points = [{ x: e.offsetX, y: e.offsetY }]; 
+    canvas.setPointerCapture(e.pointerId); 
 });
-canvas.addEventListener('pointerup', () => { if(isDrawing) { isDrawing = false; saveCanvasToNotebook(); } });
-canvas.addEventListener('pointercancel', () => { if(isDrawing) { isDrawing = false; saveCanvasToNotebook(); } });
+
+canvas.addEventListener('pointermove', (e) => {
+    // If we aren't drawing, or if a palm/finger is moving, ignore it completely
+    if (!isDrawing || e.pointerType === 'touch') return; 
+    
+    e.preventDefault(); 
+    points.push({ x: e.offsetX, y: e.offsetY }); 
+    setupBrush(); 
+    ctx.beginPath();
+    
+    if (points.length < 3) { 
+        let b = points[0]; 
+        ctx.moveTo(b.x, b.y); 
+        ctx.lineTo(e.offsetX, e.offsetY); 
+        ctx.stroke(); 
+        return; 
+    }
+    
+    let p0 = points[points.length - 3], p1 = points[points.length - 2], p2 = points[points.length - 1];
+    let mid1X = (p0.x + p1.x) / 2, mid1Y = (p0.y + p1.y) / 2; 
+    let mid2X = (p1.x + p2.x) / 2, mid2Y = (p1.y + p2.y) / 2;
+    
+    ctx.moveTo(mid1X, mid1Y); 
+    ctx.quadraticCurveTo(p1.x, p1.y, mid2X, mid2Y); 
+    ctx.stroke();
+});
+
+canvas.addEventListener('pointerup', (e) => { 
+    if (e.pointerType === 'touch') return;
+    if(isDrawing) { isDrawing = false; saveCanvasToNotebook(); } 
+});
+
+canvas.addEventListener('pointercancel', (e) => { 
+    if (e.pointerType === 'touch') return;
+    if(isDrawing) { isDrawing = false; saveCanvasToNotebook(); } 
+});
 document.getElementById('btnClearCanvas').addEventListener('click', () => { ctx.clearRect(0, 0, canvas.width, canvas.height); saveCanvasToNotebook(); });
 
 function saveCanvasToNotebook() {
