@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modern Tasks & Notebooks</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Modern Tasks & Calendar</title>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -14,8 +15,8 @@
         <nav class="sidebar-nav">
             <ul>
                 <li id="nav-board" class="active">My Tasks</li>
+                <li id="nav-calendar">Calendar</li>
                 <li id="nav-notebooks">Notes & Ideas</li>
-                <li>Calendar</li>
                 <li>Settings</li>
             </ul>
         </nav>
@@ -31,6 +32,28 @@
             
             <div class="task-list-container" id="taskListContainer">
                 </div>
+        </section>
+
+        <section id="view-calendar" class="view-section">
+            <header class="app-header">
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <h1 id="calendarMonthYear">Month Year</h1>
+                    <div class="calendar-nav-buttons">
+                        <button class="btn-cancel" id="btnPrevMonth">&lt;</button>
+                        <button class="btn-cancel" id="btnNextMonth">&gt;</button>
+                        <button class="btn-cancel" id="btnToday">Today</button>
+                    </div>
+                </div>
+                <button id="btnCreateEvent">+ New Event</button>
+            </header>
+            
+            <div class="calendar-wrapper">
+                <div class="calendar-header-row">
+                    <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                </div>
+                <div class="calendar-grid" id="calendarGrid">
+                    </div>
+            </div>
         </section>
 
         <section id="view-notebooks-list" class="view-section">
@@ -77,15 +100,37 @@
 
     <div class="modal-overlay" id="createTaskModal">
         <div class="modal-content">
-            <div class="modal-header">New Task</div>
+            <div class="modal-header" id="taskModalHeader">New Task</div>
+            
             <div class="form-group">
-                <label>Task Name</label>
-                <input type="text" id="newTaskTitle" placeholder="What needs to be done?" autocomplete="off">
+                <label>Title</label>
+                <input type="text" id="newTaskTitle" placeholder="e.g., Marketing Meeting" autocomplete="off">
             </div>
+            
+            <div class="form-group toggle-group">
+                <label style="margin: 0; cursor: pointer;" for="isEventToggle">Schedule in Calendar</label>
+                <label class="switch">
+                    <input type="checkbox" id="isEventToggle">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+
+            <div class="form-group-row" id="dateTimeInputs">
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                    <label>Date</label>
+                    <input type="date" id="newTaskDate">
+                </div>
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                    <label>Time (Optional)</label>
+                    <input type="time" id="newTaskTime">
+                </div>
+            </div>
+
             <div class="form-group">
                 <label>Description (Optional)</label>
                 <textarea id="newTaskDesc" placeholder="Add extra details here..."></textarea>
             </div>
+            
             <div class="form-group">
                 <label>Color Tag</label>
                 <div class="color-options" id="taskColorOptions">
@@ -97,9 +142,10 @@
                     <div class="color-swatch" data-color="var(--color-purple)" style="background-color: var(--color-purple);"></div>
                 </div>
             </div>
+            
             <div class="modal-actions">
                 <button class="btn-cancel" id="btnCancelTask">Cancel</button>
-                <button id="btnConfirmTask">Add Task</button>
+                <button id="btnConfirmTask">Save</button>
             </div>
         </div>
     </div>
