@@ -5,73 +5,155 @@ const views = { board: document.getElementById('view-board'), calendar: document
 const navs = { board: document.getElementById('nav-board'), calendar: document.getElementById('nav-calendar'), notebooks: document.getElementById('nav-notebooks') };
 
 function switchView(viewName) {
-    Object.values(views).forEach(v => v.classList.remove('active'));
+    Object.values(views).forEach(v => v?.classList.remove('active'));
     Object.values(navs).forEach(n => n?.classList.remove('active'));
-    views[viewName].classList.add('active');
+    if(views[viewName]) views[viewName].classList.add('active');
     
-    if (viewName === 'board') navs.board.classList.add('active');
-    if (viewName === 'calendar') navs.calendar.classList.add('active');
-    if (viewName === 'notebooksList' || viewName === 'whiteboard') navs.notebooks.classList.add('active');
+    if (viewName === 'board' && navs.board) navs.board.classList.add('active');
+    if (viewName === 'calendar' && navs.calendar) navs.calendar.classList.add('active');
+    if ((viewName === 'notebooksList' || viewName === 'whiteboard') && navs.notebooks) navs.notebooks.classList.add('active');
     
     if (viewName !== 'whiteboard' && activeNotebookId) { saveCanvasToNotebook(); activeNotebookId = null; }
 }
 
-navs.board.addEventListener('click', () => switchView('board'));
-navs.calendar.addEventListener('click', () => { switchView('calendar'); renderCalendar(); });
-navs.notebooks.addEventListener('click', () => switchView('notebooksList'));
-document.getElementById('btnBackToNotebooks').addEventListener('click', () => switchView('notebooksList'));
+navs.board?.addEventListener('click', () => switchView('board'));
+navs.calendar?.addEventListener('click', () => { switchView('calendar'); renderCalendar(); });
+navs.notebooks?.addEventListener('click', () => switchView('notebooksList'));
+document.getElementById('btnBackToNotebooks')?.addEventListener('click', () => switchView('notebooksList'));
 
 // ==========================================
 // TASKS & CALENDAR LOGIC 
 // ==========================================
 let tasks = [];
-try { tasks = JSON.parse(localStorage.getItem('apple_style_tasks')) || []; } catch(e) { tasks = []; }
+try { 
+    let parsedTasks = JSON.parse(localStorage.getItem('apple_style_tasks')); 
+    if (Array.isArray(parsedTasks)) tasks = parsedTasks;
+} catch(e) { console.warn("Could not load tasks."); }
 
-const taskModal = document.getElementById('createTaskModal'); const isEventToggle = document.getElementById('isEventToggle'); const dateTimeInputs = document.getElementById('dateTimeInputs'); let selectedTaskColor = 'var(--color-red)';
-function escapeHTML(str) { return str ? str.replace(/[&<>'"]/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[x])) : ''; }
+const taskModal = document.getElementById('createTaskModal'); 
+const isEventToggle = document.getElementById('isEventToggle'); 
+const dateTimeInputs = document.getElementById('dateTimeInputs'); 
+let selectedTaskColor = 'var(--color-red)';
+
+function escapeHTML(str) { return str ? String(str).replace(/[&<>'"]/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[x])) : ''; }
 function formatDisplayDate(d, t) { if (!d) return ''; const o = new Date(d + 'T00:00:00'); let f = o.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); if (t) f += ` at ${t}`; return f; }
-document.querySelectorAll('.color-swatch').forEach(swatch => { swatch.addEventListener('click', (e) => { document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected')); e.target.classList.add('selected'); selectedTaskColor = e.target.getAttribute('data-color'); }); });
-if(isEventToggle) { isEventToggle.addEventListener('change', (e) => { if(e.target.checked) { dateTimeInputs.classList.add('active'); if(!document.getElementById('newTaskDate').value) document.getElementById('newTaskDate').value = new Date().toISOString().split('T')[0]; } else { dateTimeInputs.classList.remove('active'); } }); }
 
-function openTaskModal(preDate = null, isEvent = false) { document.getElementById('newTaskTitle').value = ''; document.getElementById('newTaskDesc').value = ''; document.getElementById('newTaskDate').value = preDate || ''; document.getElementById('newTaskTime').value = ''; document.getElementById('taskModalHeader').innerText = isEvent ? 'New Event' : 'New Task'; if(isEventToggle) isEventToggle.checked = isEvent; if (isEvent) { dateTimeInputs.classList.add('active'); if(!preDate) document.getElementById('newTaskDate').value = new Date().toISOString().split('T')[0]; } else { dateTimeInputs.classList.remove('active'); } taskModal.classList.add('active'); document.getElementById('newTaskTitle').focus(); }
-document.getElementById('btnShowTaskModal').addEventListener('click', () => openTaskModal(null, false)); document.getElementById('btnCreateEvent').addEventListener('click', () => openTaskModal(null, true)); window.openModalForDate = function(d) { openTaskModal(d, true); }; document.getElementById('btnCancelTask').addEventListener('click', () => taskModal.classList.remove('active'));
-document.getElementById('btnConfirmTask').addEventListener('click', () => { const title = document.getElementById('newTaskTitle').value.trim(); const desc = document.getElementById('newTaskDesc').value.trim(); const isEvent = isEventToggle ? isEventToggle.checked : false; const date = isEvent ? document.getElementById('newTaskDate').value : null; const time = isEvent ? document.getElementById('newTaskTime').value : null; if (!title) return alert("Title is required."); if (isEvent && !date) return alert("Date is required."); tasks.push({ id: 'task_' + Date.now(), title: title, description: desc, color: selectedTaskColor, date: date, time: time }); saveAndRenderData(); taskModal.classList.remove('active'); });
-window.completeTask = function(e, id) { e.stopPropagation(); tasks = tasks.filter(t => t.id !== id); saveAndRenderData(); }; window.toggleTaskDesc = function(id) { const el = document.getElementById(id); if(el.querySelector('.task-description').innerText !== "") el.classList.toggle('expanded'); };
+document.querySelectorAll('.color-swatch').forEach(swatch => { 
+    swatch.addEventListener('click', (e) => { 
+        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected')); 
+        e.target.classList.add('selected'); 
+        selectedTaskColor = e.target.getAttribute('data-color'); 
+    }); 
+});
+
+if(isEventToggle) { 
+    isEventToggle.addEventListener('change', (e) => { 
+        if(e.target.checked) { 
+            dateTimeInputs?.classList.add('active'); 
+            if(!document.getElementById('newTaskDate').value) document.getElementById('newTaskDate').value = new Date().toISOString().split('T')[0]; 
+        } else { 
+            dateTimeInputs?.classList.remove('active'); 
+        } 
+    }); 
+}
+
+function openTaskModal(preDate = null, isEvent = false) { 
+    document.getElementById('newTaskTitle').value = ''; 
+    document.getElementById('newTaskDesc').value = ''; 
+    document.getElementById('newTaskDate').value = preDate || ''; 
+    document.getElementById('newTaskTime').value = ''; 
+    document.getElementById('taskModalHeader').innerText = isEvent ? 'New Event' : 'New Task'; 
+    if(isEventToggle) isEventToggle.checked = isEvent; 
+    
+    if (isEvent) { 
+        dateTimeInputs?.classList.add('active'); 
+        if(!preDate) document.getElementById('newTaskDate').value = new Date().toISOString().split('T')[0]; 
+    } else { 
+        dateTimeInputs?.classList.remove('active'); 
+    } 
+    taskModal?.classList.add('active'); 
+    document.getElementById('newTaskTitle')?.focus(); 
+}
+
+document.getElementById('btnShowTaskModal')?.addEventListener('click', () => openTaskModal(null, false)); 
+document.getElementById('btnCreateEvent')?.addEventListener('click', () => openTaskModal(null, true)); 
+window.openModalForDate = function(d) { openTaskModal(d, true); }; 
+document.getElementById('btnCancelTask')?.addEventListener('click', () => taskModal?.classList.remove('active'));
+
+document.getElementById('btnConfirmTask')?.addEventListener('click', () => { 
+    const title = document.getElementById('newTaskTitle').value.trim(); 
+    const desc = document.getElementById('newTaskDesc').value.trim(); 
+    const isEvent = isEventToggle ? isEventToggle.checked : false; 
+    const date = isEvent ? document.getElementById('newTaskDate').value : null; 
+    const time = isEvent ? document.getElementById('newTaskTime').value : null; 
+    
+    if (!title) return alert("Title is required."); 
+    if (isEvent && !date) return alert("Date is required."); 
+    
+    tasks.push({ id: 'task_' + Date.now(), title: title, description: desc, color: selectedTaskColor, date: date, time: time }); 
+    saveAndRenderData(); 
+    taskModal?.classList.remove('active'); 
+});
+
+window.completeTask = function(e, id) { e.stopPropagation(); tasks = tasks.filter(t => t.id !== id); saveAndRenderData(); }; 
+window.toggleTaskDesc = function(id) { const el = document.getElementById(id); if(el && el.querySelector('.task-description').innerText !== "") el.classList.toggle('expanded'); };
+
 function saveAndRenderData() { localStorage.setItem('apple_style_tasks', JSON.stringify(tasks)); renderTaskList(); renderCalendar(); }
 
 function renderTaskList() { 
     const c = document.getElementById('taskListContainer'); if (!c) return;
-    if (tasks.length === 0) { c.innerHTML = '<div class="empty-tasks">All caught up!</div>'; return; } c.innerHTML = ''; 
+    if (!Array.isArray(tasks) || tasks.length === 0) { c.innerHTML = '<div class="empty-tasks">All caught up!</div>'; return; } 
+    c.innerHTML = ''; 
     let sorted = [...tasks].sort((a, b) => { if (!a.date && b.date) return -1; if (a.date && !b.date) return 1; if (a.date && b.date) return new Date(a.date) - new Date(b.date); return 0; }); 
-    sorted.forEach(t => { const hasDesc = t.description ? true : false; const meta = formatDisplayDate(t.date, t.time); c.innerHTML += `<div class="task-item" id="${t.id}" onclick="toggleTaskDesc('${t.id}')" style="cursor: ${hasDesc ? 'pointer' : 'default'}"><div class="task-header"><div class="task-color-dot" style="background-color: ${t.color}"></div><div class="task-title-area"><div class="task-title">${escapeHTML(t.title)}</div>${meta ? `<div class="task-meta">🗓 ${meta}</div>` : ''}</div><button class="btn-done" onclick="completeTask(event, '${t.id}')">✓ Done</button></div>${hasDesc ? `<div class="task-description">${escapeHTML(t.description).replace(/\n/g, '<br>')}</div>` : `<div class="task-description" style="display:none;"></div>`}</div>`; }); 
+    sorted.forEach(t => { 
+        const hasDesc = t.description ? true : false; 
+        const meta = formatDisplayDate(t.date, t.time); 
+        c.innerHTML += `<div class="task-item" id="${t.id}" onclick="toggleTaskDesc('${t.id}')" style="cursor: ${hasDesc ? 'pointer' : 'default'}"><div class="task-header"><div class="task-color-dot" style="background-color: ${t.color}"></div><div class="task-title-area"><div class="task-title">${escapeHTML(t.title)}</div>${meta ? `<div class="task-meta">🗓 ${meta}</div>` : ''}</div><button class="btn-done" onclick="completeTask(event, '${t.id}')">✓ Done</button></div>${hasDesc ? `<div class="task-description">${escapeHTML(t.description).replace(/\n/g, '<br>')}</div>` : `<div class="task-description" style="display:none;"></div>`}</div>`; 
+    }); 
 }
 
-let currentCalendarDate = new Date(); document.getElementById('btnPrevMonth').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1); renderCalendar(); }); document.getElementById('btnNextMonth').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1); renderCalendar(); }); document.getElementById('btnToday').addEventListener('click', () => { currentCalendarDate = new Date(); renderCalendar(); });
+let currentCalendarDate = new Date(); 
+document.getElementById('btnPrevMonth')?.addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1); renderCalendar(); }); 
+document.getElementById('btnNextMonth')?.addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1); renderCalendar(); }); 
+document.getElementById('btnToday')?.addEventListener('click', () => { currentCalendarDate = new Date(); renderCalendar(); });
+
 function renderCalendar() { 
-    const grid = document.getElementById('calendarGrid'); if (!grid) return; grid.innerHTML = ''; 
-    const year = currentCalendarDate.getFullYear(); const month = currentCalendarDate.getMonth(); const firstDayIndex = new Date(year, month, 1).getDay(); const daysInMonth = new Date(year, month + 1, 0).getDate(); const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]; document.getElementById('calendarMonthYear').innerText = `${monthNames[month]} ${year}`; 
-    for(let i=0; i<firstDayIndex; i++) grid.innerHTML += `<div class="calendar-day empty"></div>`; const today = new Date(); 
+    const grid = document.getElementById('calendarGrid'); if (!grid) return; 
+    grid.innerHTML = ''; 
+    const year = currentCalendarDate.getFullYear(); const month = currentCalendarDate.getMonth(); 
+    const firstDayIndex = new Date(year, month, 1).getDay(); const daysInMonth = new Date(year, month + 1, 0).getDate(); 
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]; 
+    if(document.getElementById('calendarMonthYear')) document.getElementById('calendarMonthYear').innerText = `${monthNames[month]} ${year}`; 
+    
+    for(let i=0; i<firstDayIndex; i++) grid.innerHTML += `<div class="calendar-day empty"></div>`; 
+    const today = new Date(); 
     for(let i=1; i<=daysInMonth; i++) { 
-        const dateStr = `${year}-${String(month+1).padStart(2, '0')}-${String(i).padStart(2, '0')}`; const isToday = i === today.getDate() && month === today.getMonth() && year === today.getFullYear(); const dayEvents = tasks.filter(t => t.date === dateStr); let eventsHTML = dayEvents.map(t => `<div class="event-badge" style="background-color: ${t.color}">${t.time ? t.time + ' ' : ''}${escapeHTML(t.title)}</div>`).join(''); grid.innerHTML += `<div class="calendar-day ${isToday ? 'today' : ''}" onclick="openModalForDate('${dateStr}')"><div class="day-number">${i}</div>${eventsHTML}</div>`; 
+        const dateStr = `${year}-${String(month+1).padStart(2, '0')}-${String(i).padStart(2, '0')}`; 
+        const isToday = i === today.getDate() && month === today.getMonth() && year === today.getFullYear(); 
+        const dayEvents = Array.isArray(tasks) ? tasks.filter(t => t.date === dateStr) : []; 
+        let eventsHTML = dayEvents.map(t => `<div class="event-badge" style="background-color: ${t.color}">${t.time ? t.time + ' ' : ''}${escapeHTML(t.title)}</div>`).join(''); 
+        grid.innerHTML += `<div class="calendar-day ${isToday ? 'today' : ''}" onclick="openModalForDate('${dateStr}')"><div class="day-number">${i}</div>${eventsHTML}</div>`; 
     } 
 }
 saveAndRenderData();
 
 
 // ==========================================
-// MULTI-PAGE NOTEBOOKS LOGIC (Safeguarded)
+// MULTI-PAGE NOTEBOOKS LOGIC (Aggressively Safeguarded)
 // ==========================================
 let notebooks = [];
 try {
-    notebooks = JSON.parse(localStorage.getItem('notebooks_data')) || [];
-    // Safe Migration for old data
-    notebooks = notebooks.map(nb => {
-        if (!nb.pages) nb.pages = [nb.drawingData || null]; 
-        if (!nb.paperColor) nb.paperColor = 'paper-white';  
-        return nb;
-    });
+    let parsedNotebooks = JSON.parse(localStorage.getItem('notebooks_data'));
+    if (Array.isArray(parsedNotebooks)) {
+        notebooks = parsedNotebooks.map(nb => {
+            if (typeof nb !== 'object' || nb === null) return null;
+            if (!nb.pages) nb.pages = [nb.drawingData || null]; 
+            if (!nb.paperColor) nb.paperColor = 'paper-white';  
+            return nb;
+        }).filter(nb => nb !== null); // Filter out any corrupted entries
+    }
 } catch(e) {
-    console.warn("Storage reset due to data error");
+    console.warn("Storage reset due to data format error.");
     notebooks = [];
 }
 
@@ -81,45 +163,59 @@ let currentPageIndex = 0;
 const notebookGrid = document.getElementById('notebookGrid');
 const nbModal = document.getElementById('createNotebookModal');
 
-// Create Notebook
-document.getElementById('btnShowNotebookModal')?.addEventListener('click', () => { document.getElementById('newNotebookName').value = ''; nbModal.classList.add('active'); document.getElementById('newNotebookName').focus(); });
-document.getElementById('btnCancelNotebook')?.addEventListener('click', () => nbModal.classList.remove('active'));
+window.showNotebookModal = function() {
+    document.getElementById('newNotebookName').value = ''; 
+    nbModal?.classList.add('active'); 
+    document.getElementById('newNotebookName')?.focus();
+}
+
+document.getElementById('btnCancelNotebook')?.addEventListener('click', () => nbModal?.classList.remove('active'));
 
 document.getElementById('btnConfirmNotebook')?.addEventListener('click', () => {
     const name = document.getElementById('newNotebookName').value.trim() || 'Untitled Notebook';
-    const paper = document.getElementById('newNotebookPaper').value;
-    
-    // Safety check in case the HTML wasn't updated properly
+    const paperSelect = document.getElementById('newNotebookPaper');
     const colorSelect = document.getElementById('newNotebookColor');
-    const color = colorSelect ? colorSelect.value : 'paper-white';
     
     notebooks.push({ 
         id: 'nb_' + Date.now(), 
         name: name, 
-        paperType: paper, 
-        paperColor: color,
+        paperType: paperSelect ? paperSelect.value : 'lined', 
+        paperColor: colorSelect ? colorSelect.value : 'paper-white',
         pages: [null] 
     });
     
     saveNotebooksList(); renderNotebooksList();
-    nbModal.classList.remove('active');
+    nbModal?.classList.remove('active');
 });
 
-window.deleteNotebook = function(e, id) { e.stopPropagation(); if(confirm('Are you sure you want to delete this notebook?')) { notebooks = notebooks.filter(nb => nb.id !== id); saveNotebooksList(); renderNotebooksList(); } };
+window.deleteNotebook = function(e, id) { 
+    e.stopPropagation(); 
+    if(confirm('Are you sure you want to delete this notebook?')) { 
+        notebooks = notebooks.filter(nb => nb.id !== id); 
+        saveNotebooksList(); 
+        renderNotebooksList(); 
+    } 
+};
+
 function saveNotebooksList() { localStorage.setItem('notebooks_data', JSON.stringify(notebooks)); }
+
 function renderNotebooksList() {
     if(!notebookGrid) return;
-    const addButtonHTML = `<div class="notebook-add-card" onclick="document.getElementById('createNotebookModal').classList.add('active'); document.getElementById('newNotebookName').focus();"><div class="add-icon">+</div><div>New Notebook</div></div>`;
+    const addButtonHTML = `
+        <div class="notebook-add-card" onclick="showNotebookModal()">
+            <div class="add-icon">+</div>
+            <div>New Notebook</div>
+        </div>`;
+    
     let gridHTML = '';
     notebooks.forEach(nb => { 
-        // Safe string replacement in case paperColor is somehow missing
         let safeColor = nb.paperColor || 'paper-white';
         let colorName = safeColor.replace('paper-', '');
         gridHTML += `
         <div class="notebook-card" onclick="openNotebook('${nb.id}')">
             <button class="notebook-card-delete" onclick="deleteNotebook(event, '${nb.id}')">Delete</button>
             <div class="notebook-card-title">${escapeHTML(nb.name)}</div>
-            <div class="notebook-card-type">${nb.paperType} • ${colorName}</div>
+            <div class="notebook-card-type" style="text-transform: capitalize;">${nb.paperType} • ${colorName}</div>
         </div>`; 
     });
     notebookGrid.innerHTML = gridHTML + addButtonHTML;
@@ -150,7 +246,10 @@ function setupRetinaCanvas() {
 function getCoords(e) { const rect = canvas.getBoundingClientRect(); return { x: e.clientX - rect.left, y: e.clientY - rect.top }; }
 
 function loadCurrentPage() {
+    if(!activeNotebookId) return;
     const notebook = notebooks.find(nb => nb.id === activeNotebookId);
+    if(!notebook) return;
+    
     if(pageIndicator) pageIndicator.innerText = `${currentPageIndex + 1}/${notebook.pages.length}`;
     if(document.getElementById('btnPrevPage')) document.getElementById('btnPrevPage').disabled = (currentPageIndex === 0);
     if(document.getElementById('btnNextPage')) document.getElementById('btnNextPage').disabled = (currentPageIndex === notebook.pages.length - 1);
@@ -170,20 +269,35 @@ window.openNotebook = function(id) {
     
     activeNotebookId = id; 
     currentPageIndex = 0; 
-    document.getElementById('activeNotebookTitle').innerText = notebook.name; 
+    
+    const titleEl = document.getElementById('activeNotebookTitle');
+    if(titleEl) titleEl.innerText = notebook.name; 
     
     let safeColor = notebook.paperColor || 'paper-white';
-    canvasWrapper.className = `canvas-wrapper bg-${notebook.paperType} ${safeColor}`; 
-    if (safeColor === 'paper-black') { colorPicker.value = '#ffffff'; } else { colorPicker.value = '#1d1d1f'; }
+    if(canvasWrapper) canvasWrapper.className = `canvas-wrapper bg-${notebook.paperType} ${safeColor}`; 
+    if(colorPicker) {
+        if (safeColor === 'paper-black') { colorPicker.value = '#ffffff'; } else { colorPicker.value = '#1d1d1f'; }
+    }
     
     setupRetinaCanvas();
     loadCurrentPage();
     switchView('whiteboard');
 };
 
-document.getElementById('btnAddPage')?.addEventListener('click', () => { saveCanvasToNotebook(); const notebook = notebooks.find(nb => nb.id === activeNotebookId); notebook.pages.push(null); currentPageIndex = notebook.pages.length - 1; loadCurrentPage(); });
-document.getElementById('btnPrevPage')?.addEventListener('click', () => { if (currentPageIndex > 0) { saveCanvasToNotebook(); currentPageIndex--; loadCurrentPage(); } });
-document.getElementById('btnNextPage')?.addEventListener('click', () => { const notebook = notebooks.find(nb => nb.id === activeNotebookId); if (currentPageIndex < notebook.pages.length - 1) { saveCanvasToNotebook(); currentPageIndex++; loadCurrentPage(); } });
+document.getElementById('btnAddPage')?.addEventListener('click', () => { 
+    saveCanvasToNotebook(); 
+    const notebook = notebooks.find(nb => nb.id === activeNotebookId); 
+    if(notebook) { notebook.pages.push(null); currentPageIndex = notebook.pages.length - 1; loadCurrentPage(); }
+});
+
+document.getElementById('btnPrevPage')?.addEventListener('click', () => { 
+    if (currentPageIndex > 0) { saveCanvasToNotebook(); currentPageIndex--; loadCurrentPage(); } 
+});
+
+document.getElementById('btnNextPage')?.addEventListener('click', () => { 
+    const notebook = notebooks.find(nb => nb.id === activeNotebookId); 
+    if (notebook && currentPageIndex < notebook.pages.length - 1) { saveCanvasToNotebook(); currentPageIndex++; loadCurrentPage(); } 
+});
 
 let touchStartX = 0;
 if(canvasWrapper) {
@@ -204,16 +318,17 @@ btnPen?.addEventListener('click', () => { isEraser = false; btnPen.classList.add
 btnEraser?.addEventListener('click', () => { isEraser = true; btnEraser.classList.add('active'); btnPen.classList.remove('active'); canvas.style.cursor = 'cell'; });
 
 function setupBrush() {
+    if(!ctx) return;
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     if (isEraser) { ctx.globalCompositeOperation = 'destination-out'; ctx.lineWidth = 30; } 
-    else { ctx.globalCompositeOperation = 'source-over'; ctx.lineWidth = 3; ctx.strokeStyle = colorPicker.value; }
+    else { ctx.globalCompositeOperation = 'source-over'; ctx.lineWidth = 3; ctx.strokeStyle = colorPicker ? colorPicker.value : '#000'; }
 }
 
 if(canvas) {
     canvas.addEventListener('pointerdown', (e) => { 
         if (e.pointerType === 'touch') return; 
         e.preventDefault(); isDrawing = true; const coords = getCoords(e); points = [coords]; 
-        canvas.setPointerCapture(e.pointerId); toolbar.style.pointerEvents = 'none'; 
+        canvas.setPointerCapture(e.pointerId); if(toolbar) toolbar.style.pointerEvents = 'none'; 
         if (saveTimeout) clearTimeout(saveTimeout);
         setupBrush(); ctx.beginPath(); ctx.moveTo(coords.x, coords.y); ctx.lineTo(coords.x + 0.1, coords.y + 0.1); ctx.stroke();
     });
@@ -230,14 +345,14 @@ if(canvas) {
             }
         }
     });
-    canvas.addEventListener('pointerup', (e) => { if (e.pointerType === 'touch') return; if (isDrawing) { isDrawing = false; saveTimeout = setTimeout(saveCanvasToNotebook, 1000); } toolbar.style.pointerEvents = 'auto'; });
-    canvas.addEventListener('pointercancel', (e) => { if (e.pointerType === 'touch') return; if (isDrawing) { isDrawing = false; saveTimeout = setTimeout(saveCanvasToNotebook, 1000); } toolbar.style.pointerEvents = 'auto'; });
+    canvas.addEventListener('pointerup', (e) => { if (e.pointerType === 'touch') return; if (isDrawing) { isDrawing = false; saveTimeout = setTimeout(saveCanvasToNotebook, 1000); } if(toolbar) toolbar.style.pointerEvents = 'auto'; });
+    canvas.addEventListener('pointercancel', (e) => { if (e.pointerType === 'touch') return; if (isDrawing) { isDrawing = false; saveTimeout = setTimeout(saveCanvasToNotebook, 1000); } if(toolbar) toolbar.style.pointerEvents = 'auto'; });
 }
 
-document.getElementById('btnClearCanvas')?.addEventListener('click', () => { ctx.clearRect(0, 0, 800, 600); saveCanvasToNotebook(); });
+document.getElementById('btnClearCanvas')?.addEventListener('click', () => { if(ctx) ctx.clearRect(0, 0, 800, 600); saveCanvasToNotebook(); });
 
 function saveCanvasToNotebook() {
-    if (!activeNotebookId) return; 
+    if (!activeNotebookId || !canvas) return; 
     const notebookIndex = notebooks.findIndex(nb => nb.id === activeNotebookId);
     if (notebookIndex > -1) { 
         notebooks[notebookIndex].pages[currentPageIndex] = canvas.toDataURL('image/png'); 
@@ -248,6 +363,8 @@ function saveCanvasToNotebook() {
 document.getElementById('btnSavePdf')?.addEventListener('click', async () => {
     saveCanvasToNotebook(); 
     const notebook = notebooks.find(nb => nb.id === activeNotebookId);
+    if(!notebook) return;
+    
     const { jsPDF } = window.jspdf; 
     const pdf = new jsPDF('l', 'pt', [800, 600]);
     const tmpCanvas = document.createElement('canvas'); tmpCanvas.width = 800; tmpCanvas.height = 600; const tCtx = tmpCanvas.getContext('2d');
@@ -264,7 +381,7 @@ document.getElementById('btnSavePdf')?.addEventListener('click', async () => {
         
         const cp = notebook.paperType; 
         if (cp === 'lined' || cp === 'squared') { for(let y = 40; y < 600; y+=40) { tCtx.beginPath(); tCtx.moveTo(0, y); tCtx.lineTo(800, y); tCtx.stroke(); } }
-        if (cp === 'squared') { for(let x = 40; x < 800; x+=40) { tCtx.beginPath(); tCtx.moveTo(x, 0); tCtx.lineTo(x, 600); tCtx.stroke(); } } // Fixed line Bug!
+        if (cp === 'squared') { for(let x = 40; x < 800; x+=40) { tCtx.beginPath(); tCtx.moveTo(x, 0); tCtx.lineTo(x, 600); tCtx.stroke(); } }
         if (cp === 'dotted') { for(let y = 40; y < 600; y+=40) { for(let x = 40; x < 800; x+=40) { tCtx.beginPath(); tCtx.arc(x, y, 2, 0, Math.PI*2); tCtx.fill(); } } }
         
         if (notebook.pages[i]) {
@@ -278,4 +395,5 @@ document.getElementById('btnSavePdf')?.addEventListener('click', async () => {
     pdf.save(`${notebook.name || 'Notes'}.pdf`);
 });
 
+// Kickstart rendering
 renderNotebooksList();
