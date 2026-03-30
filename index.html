@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Modern Tasks & Calendar</title>
+    <title>Modern Tasks & Notebooks</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="style.css">
@@ -11,7 +11,7 @@
 <body>
 
     <aside class="sidebar">
-        <div class="sidebar-header">SmartNotes</div>
+        <div class="sidebar-header">CRM Agency</div>
         <nav class="sidebar-nav">
             <ul>
                 <li id="nav-board" class="active">My Tasks</li>
@@ -29,9 +29,7 @@
                 <h1>My Tasks</h1>
                 <button id="btnShowTaskModal">+ New Task</button>
             </header>
-            
-            <div class="task-list-container" id="taskListContainer">
-                </div>
+            <div class="task-list-container" id="taskListContainer"></div>
         </section>
 
         <section id="view-calendar" class="view-section">
@@ -51,19 +49,14 @@
                 <div class="calendar-header-row">
                     <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
                 </div>
-                <div class="calendar-grid" id="calendarGrid">
-                    </div>
+                <div class="calendar-grid" id="calendarGrid"></div>
             </div>
         </section>
 
         <section id="view-notebooks-list" class="view-section">
             <header class="app-header"><h1>My Notebooks</h1></header>
             <div class="notebook-grid" id="notebookGrid">
-                <div class="notebook-add-card" id="btnShowNotebookModal">
-                    <div class="add-icon">+</div>
-                    <div>New Notebook</div>
                 </div>
-            </div>
         </section>
 
         <section id="view-whiteboard" class="view-section">
@@ -81,16 +74,20 @@
                         <button id="btnEraser" class="btn-tool">Eraser</button>
                         <input type="color" id="colorPicker" class="color-picker" value="#1d1d1f" title="Brush Color">
                     </div>
-                    <div class="tool-group" style="color: var(--text-muted); font-size: 0.9rem; font-weight: 500;">
-                        Paper: <span id="activePaperDisplay" style="color: var(--text-main); text-transform: capitalize;">Lined</span>
+                    
+                    <div class="tool-group page-controls">
+                        <button id="btnPrevPage" class="btn-tool">&lt;</button>
+                        <span id="pageIndicator" style="font-weight: 600; font-size: 0.9rem; min-width: 40px; text-align: center;">1/1</span>
+                        <button id="btnNextPage" class="btn-tool">&gt;</button>
+                        <button id="btnAddPage" class="btn-tool" style="color: var(--primary-color);">+ Add Page</button>
                     </div>
-                    <div class="tool-group">
-                        <button id="btnClearCanvas" class="btn-tool" style="color: var(--danger);">Clear Page</button>
+
+                    <div class="tool-group" style="margin-left: auto;">
                         <button id="btnSavePdf" style="padding: 0.5rem 1rem; border-radius: 10px;">Export PDF</button>
                     </div>
                 </div>
                 
-                <div id="canvasWrapper" class="canvas-wrapper bg-lined">
+                <div id="canvasWrapper" class="canvas-wrapper bg-lined paper-white">
                     <canvas id="drawCanvas" width="800" height="600"></canvas>
                 </div>
             </div>
@@ -101,36 +98,16 @@
     <div class="modal-overlay" id="createTaskModal">
         <div class="modal-content">
             <div class="modal-header" id="taskModalHeader">New Task</div>
-            
-            <div class="form-group">
-                <label>Title</label>
-                <input type="text" id="newTaskTitle" placeholder="e.g., Marketing Meeting" autocomplete="off">
-            </div>
-            
+            <div class="form-group"><label>Title</label><input type="text" id="newTaskTitle" autocomplete="off"></div>
             <div class="form-group toggle-group">
                 <label style="margin: 0; cursor: pointer;" for="isEventToggle">Schedule in Calendar</label>
-                <label class="switch">
-                    <input type="checkbox" id="isEventToggle">
-                    <span class="slider round"></span>
-                </label>
+                <label class="switch"><input type="checkbox" id="isEventToggle"><span class="slider round"></span></label>
             </div>
-
             <div class="form-group-row" id="dateTimeInputs">
-                <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                    <label>Date</label>
-                    <input type="date" id="newTaskDate">
-                </div>
-                <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                    <label>Time (Optional)</label>
-                    <input type="time" id="newTaskTime">
-                </div>
+                <div class="form-group" style="flex: 1; margin-bottom: 0;"><label>Date</label><input type="date" id="newTaskDate"></div>
+                <div class="form-group" style="flex: 1; margin-bottom: 0;"><label>Time (Optional)</label><input type="time" id="newTaskTime"></div>
             </div>
-
-            <div class="form-group">
-                <label>Description (Optional)</label>
-                <textarea id="newTaskDesc" placeholder="Add extra details here..."></textarea>
-            </div>
-            
+            <div class="form-group"><label>Description (Optional)</label><textarea id="newTaskDesc"></textarea></div>
             <div class="form-group">
                 <label>Color Tag</label>
                 <div class="color-options" id="taskColorOptions">
@@ -142,7 +119,6 @@
                     <div class="color-swatch" data-color="var(--color-purple)" style="background-color: var(--color-purple);"></div>
                 </div>
             </div>
-            
             <div class="modal-actions">
                 <button class="btn-cancel" id="btnCancelTask">Cancel</button>
                 <button id="btnConfirmTask">Save</button>
@@ -157,14 +133,24 @@
                 <label>Notebook Name</label>
                 <input type="text" id="newNotebookName" placeholder="e.g., Q3 Marketing Ideas" autocomplete="off">
             </div>
-            <div class="form-group">
-                <label>Paper Style</label>
-                <select id="newNotebookPaper">
-                    <option value="blank">Blank Paper</option>
-                    <option value="lined">Lined Paper</option>
-                    <option value="squared">Squared / Grid</option>
-                    <option value="dotted">Dotted</option>
-                </select>
+            <div class="form-group-row active">
+                <div class="form-group" style="flex: 1;">
+                    <label>Paper Style</label>
+                    <select id="newNotebookPaper">
+                        <option value="blank">Blank Paper</option>
+                        <option value="lined">Lined Paper</option>
+                        <option value="squared">Squared / Grid</option>
+                        <option value="dotted">Dotted</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Background Color</label>
+                    <select id="newNotebookColor">
+                        <option value="paper-white">White</option>
+                        <option value="paper-yellow">Yellow (Legal Pad)</option>
+                        <option value="paper-black">Dark Mode (Black)</option>
+                    </select>
+                </div>
             </div>
             <div class="modal-actions">
                 <button class="btn-cancel" id="btnCancelNotebook">Cancel</button>
