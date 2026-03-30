@@ -135,8 +135,31 @@ input:checked + .slider:before { transform: translateX(20px); }
 .color-picker { width: 32px; height: 32px; border: none; border-radius: 50%; cursor: pointer; padding: 0; background: none; box-shadow: 0 0 0 1px var(--border-color); }
 .color-picker::-webkit-color-swatch-wrapper { padding: 0; }
 .color-picker::-webkit-color-swatch { border: none; border-radius: 50%; }
-.canvas-wrapper { width: 800px; height: 600px; border-radius: 16px; box-shadow: var(--shadow-hover); background-color: var(--paper-color); position: relative; overflow: hidden; border: 1px solid var(--border-color); }
+.canvas-wrapper { 
+    width: 800px; height: 600px; border-radius: 16px; box-shadow: var(--shadow-hover); 
+    background-color: var(--paper-color); position: relative; overflow: hidden; 
+    border: 1px solid var(--border-color); 
+    
+    /* Stops the wrapper from being selected */
+    -webkit-user-select: none; 
+    user-select: none; 
+}
+
 .bg-blank { background-image: none; }
+.bg-lined { background-image: repeating-linear-gradient(transparent, transparent 39px, var(--line-color) 39px, var(--line-color) 40px); }
+.bg-squared { background-image: linear-gradient(var(--line-color) 1px, transparent 1px), linear-gradient(90deg, var(--line-color) 1px, transparent 1px); background-size: 40px 40px; }
+.bg-dotted { background-image: radial-gradient(circle, var(--line-color) 2px, transparent 2px); background-size: 40px 40px; }
+
+#drawCanvas { 
+    position: absolute; top: 0; left: 0; cursor: crosshair; 
+    
+    /* The Magic iPad Fixes */
+    touch-action: none;             /* Stops the iPad from trying to scroll or zoom */
+    -webkit-touch-callout: none;    /* Stops the long-press popup menu */
+    -webkit-user-select: none;      /* Stops the blue text-highlighting */
+    user-select: none;              /* Standard no-select */
+    -webkit-user-drag: none;        /* Stops the browser from treating the canvas as a draggable image */
+}.bg-blank { background-image: none; }
 .bg-lined { background-image: repeating-linear-gradient(transparent, transparent 39px, var(--line-color) 39px, var(--line-color) 40px); }
 .bg-squared { background-image: linear-gradient(var(--line-color) 1px, transparent 1px), linear-gradient(90deg, var(--line-color) 1px, transparent 1px); background-size: 40px 40px; }
 .bg-dotted { background-image: radial-gradient(circle, var(--line-color) 2px, transparent 2px); background-size: 40px 40px; }
