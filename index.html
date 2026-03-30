@@ -3,32 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modern Kanban & Notebooks</title>
+    <title>Modern Tasks & Notebooks</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <style>
         /* CSS: Apple-Inspired Light Theme */
         :root {
-            /* Apple Color Palette */
-            --bg-color: #f5f5f7; /* Classic Mac/iOS background */
+            --bg-color: #f5f5f7;
             --sidebar-bg: #ffffff;
-            --column-bg: #f2f2f7;
             --card-bg: #ffffff;
             --text-main: #1d1d1f;
             --text-muted: #86868b;
-            --primary-color: #007aff; /* iOS Blue */
+            --primary-color: #007aff; 
             --primary-hover: #005bb5;
-            --danger: #ff3b30; /* iOS Red */
+            --danger: #ff3b30; 
             --border-color: #e5e5ea;
             --shadow-subtle: 0 4px 14px rgba(0, 0, 0, 0.04);
             --shadow-hover: 0 10px 24px rgba(0, 0, 0, 0.08);
-            
-            /* San Francisco Font Stack */
             --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            
             --paper-color: #ffffff;
             --line-color: #e5e5ea;
+
+            /* Task Colors */
+            --color-red: #ff3b30;
+            --color-orange: #ff9500;
+            --color-yellow: #ffcc00;
+            --color-green: #34c759;
+            --color-blue: #007aff;
+            --color-purple: #af52de;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-family); -webkit-font-smoothing: antialiased; }
@@ -50,19 +53,20 @@
 
         /* Main Area */
         .main-content { flex: 1; padding: 2.5rem; overflow-y: auto; position: relative; }
-        .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; max-width: 800px; }
         h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; }
         .view-section { display: none; height: 100%; animation: fadeIn 0.3s ease; }
         .view-section.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
         /* General Inputs & Buttons */
-        input[type="text"], select { 
+        input[type="text"], textarea, select { 
             padding: 0.8rem 1.2rem; border: 1px solid var(--border-color); border-radius: 12px; 
             background-color: #ffffff; color: var(--text-main); outline: none; font-size: 1rem;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.01); transition: border-color 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.01); transition: border-color 0.2s, box-shadow 0.2s; width: 100%;
         }
-        input[type="text"]:focus, select:focus { 
+        textarea { resize: vertical; min-height: 100px; }
+        input[type="text"]:focus, textarea:focus, select:focus { 
             border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2); 
         }
         button { 
@@ -71,27 +75,50 @@
         }
         button:hover { background-color: var(--primary-hover); }
 
-        /* --- Kanban Board --- */
-        .input-group { display: flex; gap: 0.75rem; margin-bottom: 2rem; max-width: 600px; }
-        .input-group input { flex: 1; }
-        .kanban-board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; align-items: flex-start; }
-        .column { background-color: var(--column-bg); padding: 1.25rem; border-radius: 16px; min-height: 400px; }
-        .column-header { 
-            display: flex; justify-content: space-between; margin-bottom: 1rem; 
-            padding-bottom: 0.5rem; font-weight: 600; color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;
+        /* --- New Reminders-Style Task List --- */
+        .task-list-container { max-width: 800px; display: flex; flex-direction: column; gap: 0.75rem; }
+        
+        .task-item { 
+            background-color: var(--card-bg); border-radius: 16px; padding: 1rem 1.25rem;
+            box-shadow: var(--shadow-subtle); border: 1px solid rgba(0,0,0,0.03);
+            transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;
+            display: flex; flex-direction: column; overflow: hidden;
         }
-        .task-card { 
-            background-color: var(--card-bg); padding: 1.25rem; border-radius: 12px; margin-bottom: 0.75rem; 
-            display: flex; flex-direction: column; gap: 0.75rem; box-shadow: var(--shadow-subtle);
-            border: 1px solid rgba(0,0,0,0.03); transition: transform 0.2s, box-shadow 0.2s;
+        .task-item:hover { box-shadow: var(--shadow-hover); transform: translateY(-1px); }
+        
+        .task-header { display: flex; align-items: center; gap: 1rem; width: 100%; }
+        
+        .task-color-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+        
+        .task-title { font-weight: 500; font-size: 1.05rem; flex: 1; color: var(--text-main); transition: color 0.2s; }
+        
+        .btn-done { 
+            background-color: transparent; color: var(--color-green); border: 1px solid var(--color-green);
+            padding: 0.4rem 0.8rem; font-size: 0.85rem; border-radius: 20px; font-weight: 600;
+            opacity: 0; transform: translateX(10px); transition: all 0.2s ease;
         }
-        .task-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
-        .card-actions { display: flex; justify-content: flex-end; gap: 0.25rem; }
-        .btn-card { background: transparent; color: var(--text-muted); padding: 0.4rem 0.6rem; font-size: 0.8rem; border-radius: 8px; font-weight: 500;}
-        .btn-card:hover { color: var(--primary-color); background-color: rgba(0, 122, 255, 0.1); }
-        .btn-delete:hover { color: var(--danger); background-color: rgba(255, 59, 48, 0.1); }
+        .task-item:hover .btn-done { opacity: 1; transform: translateX(0); }
+        .btn-done:hover { background-color: var(--color-green); color: white; }
 
-        /* --- Notebooks Dashboard --- */
+        .task-description { 
+            font-size: 0.95rem; color: var(--text-muted); line-height: 1.5;
+            margin-top: 0; max-height: 0; opacity: 0; padding-left: 2.1rem;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        .task-item.expanded .task-description { margin-top: 0.75rem; max-height: 500px; opacity: 1; }
+
+        .empty-tasks { text-align: center; color: var(--text-muted); padding: 3rem; font-weight: 500; }
+
+        /* Color Picker Swatches */
+        .color-options { display: flex; gap: 1rem; margin-top: 0.5rem; }
+        .color-swatch { 
+            width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+            border: 2px solid transparent; transition: transform 0.2s;
+        }
+        .color-swatch:hover { transform: scale(1.1); }
+        .color-swatch.selected { border-color: var(--text-main); box-shadow: 0 0 0 2px #ffffff inset; transform: scale(1.1); }
+
+        /* --- Notebooks Dashboard (Unchanged) --- */
         .notebook-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.5rem; }
         .notebook-card { 
             background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; 
@@ -116,7 +143,7 @@
         .notebook-add-card:hover { border-color: var(--primary-color); color: var(--primary-color); background-color: rgba(0, 122, 255, 0.03); }
         .add-icon { font-size: 2.5rem; font-weight: 300; line-height: 1; }
 
-        /* --- Modal --- */
+        /* --- Modal System --- */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.2); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
@@ -134,7 +161,7 @@
         .btn-cancel { background: #f2f2f7; color: var(--text-main); }
         .btn-cancel:hover { background: #e5e5ea; }
 
-        /* --- Active Whiteboard Styles --- */
+        /* --- Active Whiteboard Styles (Unchanged) --- */
         .whiteboard-container { display: flex; flex-direction: column; gap: 1.5rem; align-items: flex-start; }
         .toolbar { 
             display: flex; gap: 1rem; align-items: center; background-color: #ffffff; 
@@ -150,12 +177,9 @@
         .color-picker::-webkit-color-swatch-wrapper { padding: 0; }
         .color-picker::-webkit-color-swatch { border: none; border-radius: 50%; }
 
-        /* Canvas & Paper Backgrounds */
         .canvas-wrapper {
-            width: 800px; height: 600px; 
-            border-radius: 16px; box-shadow: var(--shadow-hover);
-            background-color: var(--paper-color);
-            position: relative; overflow: hidden; border: 1px solid var(--border-color);
+            width: 800px; height: 600px; border-radius: 16px; box-shadow: var(--shadow-hover);
+            background-color: var(--paper-color); position: relative; overflow: hidden; border: 1px solid var(--border-color);
         }
         .bg-blank { background-image: none; }
         .bg-lined { background-image: repeating-linear-gradient(transparent, transparent 39px, var(--line-color) 39px, var(--line-color) 40px); }
@@ -167,10 +191,10 @@
 <body>
 
     <aside class="sidebar">
-        <div class="sidebar-header">CRM Agency</div>
+        <div class="sidebar-header">SmartNotes</div>
         <nav class="sidebar-nav">
             <ul>
-                <li id="nav-board" class="active">Tasks Board</li>
+                <li id="nav-board" class="active">My Tasks</li>
                 <li id="nav-notebooks">Notes & Ideas</li>
                 <li>Calendar</li>
                 <li>Settings</li>
@@ -181,23 +205,19 @@
     <main class="main-content">
         
         <section id="view-board" class="view-section active">
-            <header class="app-header"><h1>Tasks Board</h1></header>
-            <div class="input-group">
-                <input type="text" id="taskInput" placeholder="Add new backlog task..." autocomplete="off">
-                <button id="addBtn">Add Task</button>
-            </div>
-            <div class="kanban-board">
-                <div class="column" id="col-backlog"><div class="column-header"><span>Backlog</span></div><ul class="task-list" id="list-backlog" style="list-style: none;"></ul></div>
-                <div class="column" id="col-todo"><div class="column-header"><span>To Do</span></div><ul class="task-list" id="list-todo" style="list-style: none;"></ul></div>
-                <div class="column" id="col-inprogress"><div class="column-header"><span>In Progress</span></div><ul class="task-list" id="list-inprogress" style="list-style: none;"></ul></div>
-                <div class="column" id="col-done"><div class="column-header"><span>Done</span></div><ul class="task-list" id="list-done" style="list-style: none;"></ul></div>
-            </div>
+            <header class="app-header">
+                <h1>My Tasks</h1>
+                <button id="btnShowTaskModal">+ New Task</button>
+            </header>
+            
+            <div class="task-list-container" id="taskListContainer">
+                </div>
         </section>
 
         <section id="view-notebooks-list" class="view-section">
             <header class="app-header"><h1>My Notebooks</h1></header>
             <div class="notebook-grid" id="notebookGrid">
-                <div class="notebook-add-card" id="btnShowModal">
+                <div class="notebook-add-card" id="btnShowNotebookModal">
                     <div class="add-icon">+</div>
                     <div>New Notebook</div>
                 </div>
@@ -236,12 +256,41 @@
 
     </main>
 
+    <div class="modal-overlay" id="createTaskModal">
+        <div class="modal-content">
+            <div class="modal-header">New Task</div>
+            <div class="form-group">
+                <label>Task Name</label>
+                <input type="text" id="newTaskTitle" placeholder="What needs to be done?" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label>Description (Optional)</label>
+                <textarea id="newTaskDesc" placeholder="Add extra details here..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Color Tag</label>
+                <div class="color-options" id="taskColorOptions">
+                    <div class="color-swatch selected" data-color="var(--color-red)" style="background-color: var(--color-red);"></div>
+                    <div class="color-swatch" data-color="var(--color-orange)" style="background-color: var(--color-orange);"></div>
+                    <div class="color-swatch" data-color="var(--color-yellow)" style="background-color: var(--color-yellow);"></div>
+                    <div class="color-swatch" data-color="var(--color-green)" style="background-color: var(--color-green);"></div>
+                    <div class="color-swatch" data-color="var(--color-blue)" style="background-color: var(--color-blue);"></div>
+                    <div class="color-swatch" data-color="var(--color-purple)" style="background-color: var(--color-purple);"></div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" id="btnCancelTask">Cancel</button>
+                <button id="btnConfirmTask">Add Task</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="createNotebookModal">
         <div class="modal-content">
             <div class="modal-header">Create New Notebook</div>
             <div class="form-group">
                 <label>Notebook Name</label>
-                <input type="text" id="newNotebookName" placeholder="e.g., Q3 Marketing Ideas">
+                <input type="text" id="newNotebookName" placeholder="e.g., Q3 Marketing Ideas" autocomplete="off">
             </div>
             <div class="form-group">
                 <label>Paper Style</label>
@@ -294,27 +343,96 @@
 
 
         // ==========================================
-        // KANBAN LOGIC
+        // NEW REMINDERS-STYLE TASK LOGIC
         // ==========================================
-        const STATUS_FLOW = ['backlog', 'todo', 'inprogress', 'done'];
-        let tasks = JSON.parse(localStorage.getItem('tasks_kanban')) || [];
-        document.getElementById('addBtn').addEventListener('click', addTask);
-        document.getElementById('taskInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') addTask(); });
-        function addTask() { const v = document.getElementById('taskInput').value.trim(); if (!v) return; tasks.push({ id: Date.now().toString(), text: v, status: 'backlog' }); document.getElementById('taskInput').value = ''; saveAndRenderBoard(); }
-        function changeTaskStatus(id, s) { tasks = tasks.map(t => t.id === id ? { ...t, status: s } : t); saveAndRenderBoard(); }
-        function deleteT(id) { tasks = tasks.filter(t => t.id !== id); saveAndRenderBoard(); }
-        function saveAndRenderBoard() {
-            localStorage.setItem('tasks_kanban', JSON.stringify(tasks)); STATUS_FLOW.forEach(s => document.getElementById(`list-${s}`).innerHTML = '');
+        let tasks = JSON.parse(localStorage.getItem('apple_style_tasks')) || [];
+        const taskModal = document.getElementById('createTaskModal');
+        let selectedTaskColor = 'var(--color-red)'; // Default
+
+        // Setup Color Picker Swatches
+        document.querySelectorAll('.color-swatch').forEach(swatch => {
+            swatch.addEventListener('click', (e) => {
+                document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+                e.target.classList.add('selected');
+                selectedTaskColor = e.target.getAttribute('data-color');
+            });
+        });
+
+        // Open/Close Task Modal
+        document.getElementById('btnShowTaskModal').addEventListener('click', () => {
+            document.getElementById('newTaskTitle').value = '';
+            document.getElementById('newTaskDesc').value = '';
+            taskModal.classList.add('active');
+            document.getElementById('newTaskTitle').focus();
+        });
+        document.getElementById('btnCancelTask').addEventListener('click', () => taskModal.classList.remove('active'));
+
+        // Create Task
+        document.getElementById('btnConfirmTask').addEventListener('click', () => {
+            const title = document.getElementById('newTaskTitle').value.trim();
+            const desc = document.getElementById('newTaskDesc').value.trim();
+            
+            if (!title) return alert("Task name is required.");
+
+            tasks.push({
+                id: 'task_' + Date.now(),
+                title: title,
+                description: desc,
+                color: selectedTaskColor
+            });
+
+            saveAndRenderTasks();
+            taskModal.classList.remove('active');
+        });
+
+        // Mark Task as Done (Deletes it)
+        window.completeTask = function(e, id) {
+            e.stopPropagation(); // Prevents the card from expanding when clicking the button
+            tasks = tasks.filter(t => t.id !== id);
+            saveAndRenderTasks();
+        };
+
+        // Expand/Collapse Task Description
+        window.toggleTaskDesc = function(id) {
+            const taskElement = document.getElementById(id);
+            // Only toggle if there is a description
+            if(taskElement.querySelector('.task-description').innerText !== "") {
+                taskElement.classList.toggle('expanded');
+            }
+        };
+
+        function saveAndRenderTasks() {
+            localStorage.setItem('apple_style_tasks', JSON.stringify(tasks));
+            const container = document.getElementById('taskListContainer');
+            
+            if (tasks.length === 0) {
+                container.innerHTML = '<div class="empty-tasks">All caught up! No active tasks.</div>';
+                return;
+            }
+
+            container.innerHTML = '';
             tasks.forEach(t => {
-                const li = document.createElement('li'); li.className = 'task-card'; const idx = STATUS_FLOW.indexOf(t.status); let btns = '';
-                if (idx > 0) btns += `<button class="btn-card" onclick="changeTaskStatus('${t.id}', '${STATUS_FLOW[idx - 1]}')">&laquo; Back</button>`;
-                if (idx < 3) btns += `<button class="btn-card" onclick="changeTaskStatus('${t.id}', '${STATUS_FLOW[idx + 1]}')">Next &raquo;</button>`;
-                btns += `<button class="btn-card btn-delete" onclick="deleteT('${t.id}')">Delete</button>`;
-                li.innerHTML = `<span style="font-size: 0.95rem; line-height: 1.4;">${t.text.replace(/[&<>'"]/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[x]))}</span><div class="card-actions">${btns}</div>`;
-                document.getElementById(`list-${t.status}`).appendChild(li);
+                const hasDesc = t.description ? true : false;
+                
+                // Security encoding for display
+                const safeTitle = t.title.replace(/[&<>'"]/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[x]));
+                const safeDesc = t.description.replace(/[&<>'"]/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[x]));
+                
+                container.innerHTML += `
+                    <div class="task-item" id="${t.id}" onclick="toggleTaskDesc('${t.id}')" style="cursor: ${hasDesc ? 'pointer' : 'default'}">
+                        <div class="task-header">
+                            <div class="task-color-dot" style="background-color: ${t.color}"></div>
+                            <div class="task-title">${safeTitle}</div>
+                            <button class="btn-done" onclick="completeTask(event, '${t.id}')">✓ Done</button>
+                        </div>
+                        ${hasDesc ? `<div class="task-description">${safeDesc.replace(/\n/g, '<br>')}</div>` : `<div class="task-description" style="display:none;"></div>`}
+                    </div>
+                `;
             });
         }
-        saveAndRenderBoard();
+        
+        // Initial load
+        saveAndRenderTasks();
 
 
         // ==========================================
@@ -324,43 +442,36 @@
         let activeNotebookId = null;
 
         const notebookGrid = document.getElementById('notebookGrid');
-        const modal = document.getElementById('createNotebookModal');
+        const nbModal = document.getElementById('createNotebookModal');
         
-        document.getElementById('btnShowModal').addEventListener('click', () => {
+        document.getElementById('btnShowNotebookModal').addEventListener('click', () => {
             document.getElementById('newNotebookName').value = '';
-            modal.classList.add('active');
+            nbModal.classList.add('active');
+            document.getElementById('newNotebookName').focus();
         });
-        document.getElementById('btnCancelNotebook').addEventListener('click', () => modal.classList.remove('active'));
+        document.getElementById('btnCancelNotebook').addEventListener('click', () => nbModal.classList.remove('active'));
 
         document.getElementById('btnConfirmNotebook').addEventListener('click', () => {
             const name = document.getElementById('newNotebookName').value.trim() || 'Untitled Notebook';
             const paper = document.getElementById('newNotebookPaper').value;
-            
-            const newNotebook = {
-                id: 'nb_' + Date.now(), name: name, paperType: paper, drawingData: null
-            };
-
-            notebooks.push(newNotebook);
-            saveNotebooksList();
-            renderNotebooksList();
-            modal.classList.remove('active');
+            notebooks.push({ id: 'nb_' + Date.now(), name: name, paperType: paper, drawingData: null });
+            saveNotebooksList(); renderNotebooksList();
+            nbModal.classList.remove('active');
         });
 
         window.deleteNotebook = function(e, id) {
             e.stopPropagation(); 
             if(confirm('Are you sure you want to delete this notebook?')) {
                 notebooks = notebooks.filter(nb => nb.id !== id);
-                saveNotebooksList();
-                renderNotebooksList();
+                saveNotebooksList(); renderNotebooksList();
             }
         };
 
         function saveNotebooksList() { localStorage.setItem('notebooks_data', JSON.stringify(notebooks)); }
 
         function renderNotebooksList() {
-            const addButtonHTML = `<div class="notebook-add-card" id="btnShowModal" onclick="document.getElementById('createNotebookModal').classList.add('active')">
+            const addButtonHTML = `<div class="notebook-add-card" id="btnShowNotebookModal" onclick="document.getElementById('createNotebookModal').classList.add('active'); document.getElementById('newNotebookName').focus();">
                 <div class="add-icon">+</div><div>New Notebook</div></div>`;
-            
             let gridHTML = '';
             notebooks.forEach(nb => {
                 gridHTML += `
@@ -375,7 +486,7 @@
         }
 
         // ==========================================
-        // ACTIVE WHITEBOARD CANVAS LOGIC (Apple Pencil Support Included)
+        // ACTIVE WHITEBOARD CANVAS LOGIC 
         // ==========================================
         const canvas = document.getElementById('drawCanvas');
         const ctx = canvas.getContext('2d');
@@ -386,17 +497,13 @@
         window.openNotebook = function(id) {
             const notebook = notebooks.find(nb => nb.id === id);
             if (!notebook) return;
-
             activeNotebookId = id;
             document.getElementById('activeNotebookTitle').innerText = notebook.name;
             document.getElementById('activePaperDisplay').innerText = notebook.paperType;
             canvasWrapper.className = `canvas-wrapper bg-${notebook.paperType}`;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
             if (notebook.drawingData) {
-                const img = new Image();
-                img.onload = () => ctx.drawImage(img, 0, 0);
-                img.src = notebook.drawingData;
+                const img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0); img.src = notebook.drawingData;
             }
             switchView('whiteboard');
         };
@@ -412,72 +519,36 @@
             else { ctx.globalCompositeOperation = 'source-over'; ctx.lineWidth = 3; ctx.strokeStyle = colorPicker.value; }
         }
 
-        // Drawing Events (Using pointer events for iPad / Apple Pencil compatibility)
-        canvas.addEventListener('pointerdown', (e) => { 
-            isDrawing = true; 
-            points = [{ x: e.offsetX, y: e.offsetY }]; 
-            canvas.setPointerCapture(e.pointerId);
-        });
-
+        canvas.addEventListener('pointerdown', (e) => { isDrawing = true; points = [{ x: e.offsetX, y: e.offsetY }]; canvas.setPointerCapture(e.pointerId); });
         canvas.addEventListener('pointermove', (e) => {
-            if (!isDrawing) return;
-            e.preventDefault(); 
-            
-            points.push({ x: e.offsetX, y: e.offsetY });
-            setupBrush(); 
-            ctx.beginPath();
-            
-            if (points.length < 3) { 
-                let b = points[0]; 
-                ctx.moveTo(b.x, b.y); 
-                ctx.lineTo(e.offsetX, e.offsetY); 
-                ctx.stroke(); 
-                return; 
-            }
-            
+            if (!isDrawing) return; e.preventDefault(); 
+            points.push({ x: e.offsetX, y: e.offsetY }); setupBrush(); ctx.beginPath();
+            if (points.length < 3) { let b = points[0]; ctx.moveTo(b.x, b.y); ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); return; }
             let p0 = points[points.length - 3], p1 = points[points.length - 2], p2 = points[points.length - 1];
-            let mid1X = (p0.x + p1.x) / 2, mid1Y = (p0.y + p1.y) / 2;
-            let mid2X = (p1.x + p2.x) / 2, mid2Y = (p1.y + p2.y) / 2;
-            
-            ctx.moveTo(mid1X, mid1Y); 
-            ctx.quadraticCurveTo(p1.x, p1.y, mid2X, mid2Y); 
-            ctx.stroke();
+            let mid1X = (p0.x + p1.x) / 2, mid1Y = (p0.y + p1.y) / 2; let mid2X = (p1.x + p2.x) / 2, mid2Y = (p1.y + p2.y) / 2;
+            ctx.moveTo(mid1X, mid1Y); ctx.quadraticCurveTo(p1.x, p1.y, mid2X, mid2Y); ctx.stroke();
         });
-
         canvas.addEventListener('pointerup', () => { if(isDrawing) { isDrawing = false; saveCanvasToNotebook(); } });
         canvas.addEventListener('pointercancel', () => { if(isDrawing) { isDrawing = false; saveCanvasToNotebook(); } });
 
-        document.getElementById('btnClearCanvas').addEventListener('click', () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            saveCanvasToNotebook();
-        });
+        document.getElementById('btnClearCanvas').addEventListener('click', () => { ctx.clearRect(0, 0, canvas.width, canvas.height); saveCanvasToNotebook(); });
 
         function saveCanvasToNotebook() {
             if (!activeNotebookId) return;
             const notebookIndex = notebooks.findIndex(nb => nb.id === activeNotebookId);
-            if (notebookIndex > -1) {
-                notebooks[notebookIndex].drawingData = canvas.toDataURL('image/png');
-                saveNotebooksList();
-            }
+            if (notebookIndex > -1) { notebooks[notebookIndex].drawingData = canvas.toDataURL('image/png'); saveNotebooksList(); }
         }
 
-        // PDF Export
         document.getElementById('btnSavePdf').addEventListener('click', () => {
             const notebook = notebooks.find(nb => nb.id === activeNotebookId);
-            const { jsPDF } = window.jspdf;
-            const pdf = new jsPDF('l', 'pt', [canvas.width, canvas.height]);
-            const tmpCanvas = document.createElement('canvas');
-            tmpCanvas.width = canvas.width; tmpCanvas.height = canvas.height;
+            const { jsPDF } = window.jspdf; const pdf = new jsPDF('l', 'pt', [canvas.width, canvas.height]);
+            const tmpCanvas = document.createElement('canvas'); tmpCanvas.width = canvas.width; tmpCanvas.height = canvas.height;
             const tCtx = tmpCanvas.getContext('2d');
-            
             tCtx.fillStyle = '#ffffff'; tCtx.fillRect(0, 0, tmpCanvas.width, tmpCanvas.height);
-            const currentPaper = notebook.paperType;
-            tCtx.strokeStyle = '#e5e5ea'; tCtx.fillStyle = '#e5e5ea'; tCtx.lineWidth = 1;
-
+            const currentPaper = notebook.paperType; tCtx.strokeStyle = '#e5e5ea'; tCtx.fillStyle = '#e5e5ea'; tCtx.lineWidth = 1;
             if (currentPaper === 'lined' || currentPaper === 'squared') { for(let y = 40; y < tmpCanvas.height; y+=40) { tCtx.beginPath(); tCtx.moveTo(0, y); tCtx.lineTo(tmpCanvas.width, y); tCtx.stroke(); } }
             if (currentPaper === 'squared') { for(let x = 40; x < tmpCanvas.width; x+=40) { tCtx.beginPath(); tCtx.moveTo(x, 0); tCtx.lineTo(x, tmpCanvas.height); tCtx.stroke(); } }
             if (currentPaper === 'dotted') { for(let y = 40; y < tmpCanvas.height; y+=40) { for(let x = 40; x < tmpCanvas.width; x+=40) { tCtx.beginPath(); tCtx.arc(x, y, 2, 0, Math.PI*2); tCtx.fill(); } } }
-
             tCtx.drawImage(canvas, 0, 0);
             const finalImage = tmpCanvas.toDataURL('image/jpeg', 1.0);
             pdf.addImage(finalImage, 'JPEG', 0, 0, canvas.width, canvas.height);
