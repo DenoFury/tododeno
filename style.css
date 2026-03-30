@@ -25,7 +25,23 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-family); -webkit-font-smoothing: antialiased; }
-body { background-color: var(--bg-color); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+body { 
+    background-color: var(--bg-color); 
+    color: var(--text-main); 
+    display: flex; 
+    height: 100vh; 
+    overflow: hidden; 
+
+    /* The iPad Palm Rejection Fix for the UI */
+    -webkit-touch-callout: none; /* Stops the iOS long-press popup menu */
+    -webkit-user-select: none;   /* Stops text highlighting */
+    user-select: none;           /* Standard no-select */
+}
+
+input, textarea {
+    -webkit-user-select: auto;
+    user-select: auto;
+}
 
 /* Sidebar */
 .sidebar { width: 260px; background-color: var(--sidebar-bg); padding: 2rem 1.5rem; display: flex; flex-direction: column; border-right: 1px solid var(--border-color); z-index: 10; }
