@@ -34,6 +34,7 @@ navs.calendar.addEventListener('click', () => { switchView('calendar'); renderCa
 navs.notebooks.addEventListener('click', () => switchView('notebooksList'));
 document.getElementById('btnBackToNotebooks').addEventListener('click', () => switchView('notebooksList'));
 
+
 // ==========================================
 // TASK & EVENT CREATION LOGIC
 // ==========================================
@@ -43,7 +44,9 @@ const isEventToggle = document.getElementById('isEventToggle');
 const dateTimeInputs = document.getElementById('dateTimeInputs');
 let selectedTaskColor = 'var(--color-red)';
 
-function escapeHTML(str) { return str.replace(/[&<>'"]/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[x])); }
+function escapeHTML(str) { 
+    return str.replace(/[&<>'"]/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[x])); 
+}
 
 function formatDisplayDate(dateStr, timeStr) {
     if (!dateStr) return '';
@@ -155,6 +158,7 @@ function renderTaskList() {
     });
 }
 
+
 // ==========================================
 // CALENDAR GRID LOGIC
 // ==========================================
@@ -193,6 +197,7 @@ function renderCalendar() {
     }
 }
 saveAndRenderData();
+
 
 // ==========================================
 // NOTEBOOKS & HIGH-DPI WHITEBOARD LOGIC
@@ -233,9 +238,11 @@ const ctx = canvas.getContext('2d');
 const canvasWrapper = document.getElementById('canvasWrapper');
 const colorPicker = document.getElementById('colorPicker');
 const toolbar = document.querySelector('.toolbar');
-let isDrawing = false, isEraser = false, points = [];
 
-// NEW: Make canvas razor sharp on iPads (Retina displays)
+let isDrawing = false, isEraser = false, points = [];
+let saveTimeout = null; // Debounce timer to prevent iPad stuttering
+
+// Make canvas razor sharp on iPads (Retina displays)
 function setupRetinaCanvas() {
     const dpr = window.devicePixelRatio || 1;
     // The visual CSS size
@@ -275,56 +282,108 @@ btnEraser.addEventListener('click', () => { isEraser = true; btnEraser.classList
 
 function setupBrush() {
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    if (isEraser) { ctx.globalCompositeOperation = 'destination-out'; ctx.lineWidth = 25; } else { ctx.globalCompositeOperation = 'source-over'; ctx.lineWidth = 3; ctx.strokeStyle = colorPicker.value; }
+    if (isEraser) { 
+        ctx.globalCompositeOperation = 'destination-out'; 
+        ctx.lineWidth = 25; 
+    } else { 
+        ctx.globalCompositeOperation = 'source-over'; 
+        ctx.lineWidth = 3; 
+        ctx.strokeStyle = colorPicker.value; 
+    }
 }
 
 canvas.addEventListener('pointerdown', (e) => { 
     if (e.pointerType === 'touch') return; // Palm Rejection
+    
     isDrawing = true; 
     points = [{ x: e.offsetX, y: e.offsetY }]; 
     canvas.setPointerCapture(e.pointerId); 
     toolbar.style.pointerEvents = 'none'; // Force Field
+    
+    // Cancel any pending saves if the user starts drawing quickly again
+    if (saveTimeout) clearTimeout(saveTimeout);
 });
 
 canvas.addEventListener('pointermove', (e) => {
     if (!isDrawing || e.pointerType === 'touch') return; 
     e.preventDefault(); 
-    points.push({ x: e.offsetX, y: e.offsetY }); setupBrush(); ctx.beginPath();
-    if (points.length < 3) { let b = points[0]; ctx.moveTo(b.x, b.y); ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); return; }
+    
+    points.push({ x: e.offsetX, y: e.offsetY }); 
+    setupBrush(); 
+    ctx.beginPath();
+    
+    if (points.length < 3) { 
+        let b = points[0]; 
+        ctx.moveTo(b.x, b.y); 
+        ctx.lineTo(e.offsetX, e.offsetY); 
+        ctx.stroke(); 
+        return; 
+    }
+    
     let p0 = points[points.length - 3], p1 = points[points.length - 2], p2 = points[points.length - 1];
-    let mid1X = (p0.x + p1.x) / 2, mid1Y = (p0.y + p1.y) / 2; let mid2X = (p1.x + p2.x) / 2, mid2Y = (p1.y + p2.y) / 2;
-    ctx.moveTo(mid1X, mid1Y); ctx.quadraticCurveTo(p1.x, p1.y, mid2X, mid2Y); ctx.stroke();
+    let mid1X = (p0.x + p1.x) / 2, mid1Y = (p0.y + p1.y) / 2; 
+    let mid2X = (p1.x + p2.x) / 2, mid2Y = (p1.y + p2.y) / 2;
+    
+    ctx.moveTo(mid1X, mid1Y); 
+    ctx.quadraticCurveTo(p1.x, p1.y, mid2X, mid2Y); 
+    ctx.stroke();
 });
 
 canvas.addEventListener('pointerup', (e) => { 
     if (e.pointerType === 'touch') return;
-    if(isDrawing) { isDrawing = false; saveCanvasToNotebook(); } 
+    
+    if (isDrawing) { 
+        isDrawing = false; 
+        // Delay save by 1000ms to allow fast multi-stroke writing without stuttering
+        saveTimeout = setTimeout(() => {
+            saveCanvasToNotebook();
+        }, 1000); 
+    } 
     toolbar.style.pointerEvents = 'auto'; // Remove Force Field
 });
 
 canvas.addEventListener('pointercancel', (e) => { 
     if (e.pointerType === 'touch') return;
-    if(isDrawing) { isDrawing = false; saveCanvasToNotebook(); } 
+    
+    if (isDrawing) { 
+        isDrawing = false; 
+        saveTimeout = setTimeout(() => { saveCanvasToNotebook(); }, 1000); 
+    } 
     toolbar.style.pointerEvents = 'auto'; // Remove Force Field
 });
 
-document.getElementById('btnClearCanvas').addEventListener('click', () => { ctx.clearRect(0, 0, 800, 600); saveCanvasToNotebook(); });
+document.getElementById('btnClearCanvas').addEventListener('click', () => { 
+    ctx.clearRect(0, 0, 800, 600); 
+    saveCanvasToNotebook(); 
+});
 
 function saveCanvasToNotebook() {
-    if (!activeNotebookId) return; const notebookIndex = notebooks.findIndex(nb => nb.id === activeNotebookId);
-    if (notebookIndex > -1) { notebooks[notebookIndex].drawingData = canvas.toDataURL('image/png'); saveNotebooksList(); }
+    if (!activeNotebookId) return; 
+    const notebookIndex = notebooks.findIndex(nb => nb.id === activeNotebookId);
+    if (notebookIndex > -1) { 
+        notebooks[notebookIndex].drawingData = canvas.toDataURL('image/png'); 
+        saveNotebooksList(); 
+    }
 }
 
 document.getElementById('btnSavePdf').addEventListener('click', () => {
     const notebook = notebooks.find(nb => nb.id === activeNotebookId);
-    const { jsPDF } = window.jspdf; const pdf = new jsPDF('l', 'pt', [800, 600]);
+    const { jsPDF } = window.jspdf; 
+    const pdf = new jsPDF('l', 'pt', [800, 600]);
     
     const tmpCanvas = document.createElement('canvas'); 
-    tmpCanvas.width = 800; tmpCanvas.height = 600; 
+    tmpCanvas.width = 800; 
+    tmpCanvas.height = 600; 
     const tCtx = tmpCanvas.getContext('2d');
-    tCtx.fillStyle = '#ffffff'; tCtx.fillRect(0, 0, 800, 600);
     
-    const currentPaper = notebook.paperType; tCtx.strokeStyle = '#e5e5ea'; tCtx.fillStyle = '#e5e5ea'; tCtx.lineWidth = 1;
+    tCtx.fillStyle = '#ffffff'; 
+    tCtx.fillRect(0, 0, 800, 600);
+    
+    const currentPaper = notebook.paperType; 
+    tCtx.strokeStyle = '#e5e5ea'; 
+    tCtx.fillStyle = '#e5e5ea'; 
+    tCtx.lineWidth = 1;
+    
     if (currentPaper === 'lined' || currentPaper === 'squared') { for(let y = 40; y < 600; y+=40) { tCtx.beginPath(); tCtx.moveTo(0, y); tCtx.lineTo(800, y); tCtx.stroke(); } }
     if (currentPaper === 'squared') { for(let x = 40; x < 800; x+=40) { tCtx.beginPath(); tCtx.moveTo(x, 0); tCtx.lineTo(x, 600); tCtx.stroke(); } }
     if (currentPaper === 'dotted') { for(let y = 40; y < 600; y+=40) { for(let x = 40; x < 800; x+=40) { tCtx.beginPath(); tCtx.arc(x, y, 2, 0, Math.PI*2); tCtx.fill(); } } }
